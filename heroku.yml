@@ -1,0 +1,9 @@
+# Darsak AI — OpenMAIC deployment manifest.
+# Built on Heroku from the OpenMAIC checkout (see Dockerfile).
+# The Darsak gateway (apps/api) signs the owner assertions this app verifies.
+build:
+  docker:
+    web: Dockerfile
+
+run:
+  web: node server.js
