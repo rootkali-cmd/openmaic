@@ -40,9 +40,25 @@ export const PERSISTENCE_POOL_CONNECTION_TIMEOUT_MS = 10_000;
 /** The persistence pool a deployment gets unless it passes its own factory. */
 export const defaultPersistencePool: PersistencePoolFactory = (connectionString) =>
   new Pool({
-    connectionString,
+    connectionString: withSslForRemoteHosts(connectionString),
     connectionTimeoutMillis: PERSISTENCE_POOL_CONNECTION_TIMEOUT_MS,
   });
+
+/**
+ * Heroku (and most hosted PostgreSQL providers) require TLS but do not include
+ * `sslmode` in the DATABASE_URL they attach, and `pg` does not negotiate TLS
+ * unless the URL (or an ssl option) says to. Local development databases
+ * (`localhost`, `127.0.0.1`) keep plaintext as before.
+ */
+function withSslForRemoteHosts(connectionString: string): string {
+  if (/(?:[?&]|^)sslmode=/.test(connectionString)) return connectionString;
+  const match = /^postgres(?:ql)?:\/\/([^/@]*)@([^/:?#]+)/.exec(connectionString);
+  const host = match?.[2];
+  if (!host || /^(localhost|127\.0\.0\.1|::1)$/.test(host)) return connectionString;
+  return connectionString.includes('?')
+    ? `${connectionString}&sslmode=require`
+    : `${connectionString}?sslmode=require`;
+}
 
 /**
  * The process's persistence stores. There is deliberately no document store
