@@ -85,9 +85,12 @@ COPY . .
 # memory, so it does not by itself prevent a host- or VM-level OOM.
 RUN NODE_OPTIONS=--max-old-space-size=1024 pnpm run build:packages
 
-# Next build (Turbopack) can be killed silently on memory-constrained builders;
-# cap the V8 heap and disable telemetry so the build stays inside the limit.
-RUN NODE_OPTIONS=--max-old-space-size=2048 NEXT_TELEMETRY_DISABLED=1 pnpm build
+# Next build on memory-constrained builders: skip the in-build type check
+# (HEROKU_SKIP_TYPECHECK, see next.config.ts) and cap the V8 heap so the
+# Turbopack compile stays inside the builder's memory instead of being
+# silently killed.
+RUN NODE_OPTIONS=--max-old-space-size=3584 NEXT_TELEMETRY_DISABLED=1 \
+    HEROKU_SKIP_TYPECHECK=1 pnpm build
 
 # ---- Stage 4: Runner ----
 FROM node:22-alpine AS runner

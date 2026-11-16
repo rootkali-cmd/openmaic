@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     tsconfigPath: process.env.NODE_ENV === 'production' ? 'tsconfig.build.json' : 'tsconfig.json',
+    // Memory-constrained builders (Heroku container builds) can be OOM-killed
+    // by the in-build type check on this codebase. Skip it only when the host
+    // explicitly opts in; CI and local builds keep full checking.
+    ...(process.env.HEROKU_SKIP_TYPECHECK === '1'
+      ? { ignoreBuildErrors: true }
+      : {}),
   },
   transpilePackages: ['mathml2omml', 'pptxgenjs', '@openmaic/importer'],
   // These agent packages do a runtime `import(specifier)` with a computed
