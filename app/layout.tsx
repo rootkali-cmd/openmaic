@@ -4,6 +4,7 @@ import { identifyRequestDevice } from '@/lib/adaptive/request-device';
 import { cookies, headers } from 'next/headers';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import '@fontsource-variable/cairo';
 import './globals.css';
 import '@openmaic/renderer/fonts.css';
 import 'animate.css';
@@ -18,6 +19,7 @@ import { AccessCodeGuard } from '@/components/access-code-guard';
 import { ProSwapWatcher } from '@/components/workbench/ProSwapWatcher';
 import { loadLocaleResource } from '@/lib/i18n/load-resource';
 import { LOCALE_COOKIE, resolveRequestLocale } from '@/lib/i18n/resolve-locale';
+import { isRtlLocale } from '@/lib/i18n/types';
 
 // The UI font is loaded from @fontsource's stylesheet rather than next/font,
 // because only the stylesheet carries the per-subset `unicode-range`
@@ -72,7 +74,11 @@ export default async function RootLayout({
   const { initialMobileLayout } = identifyRequestDevice(headerStore.get('user-agent'));
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={isRtlLocale(locale) ? 'rtl' : 'ltr'}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

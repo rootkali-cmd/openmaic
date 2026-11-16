@@ -66,6 +66,9 @@
      a single latin-only file, which left Cyrillic and Vietnamese text to OS
      fallback fonts. */
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  /* Darsak AI is Arabic-first: Cairo renders Arabic text natively (Inter has
+     no Arabic subset), so it comes before Inter in the stack. */
+  --font-arabic: 'Cairo Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -149,6 +152,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Arabic-first: Cairo covers Arabic glyphs, Latin falls through to Inter. */
+    font-family: var(--font-arabic);
   }
   /* Radix modal overlays wrap with `react-remove-scroll`, which compensates
      for the removed page scrollbar by adding right-side body spacing. This
