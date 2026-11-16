@@ -19,6 +19,8 @@
 import { verifySchemaMigrations } from '@openmaic/storage/pg-migrations';
 import { Pool } from 'pg';
 
+import { poolConfigFor } from './connection-string';
+
 import { APP_SCHEMA_STORES } from '@/lib/persistence/schema-stores';
 
 /** Recognized by name, so a refusal thrown by another copy of the storage package counts. */
@@ -75,7 +77,7 @@ export function startRuntimeSchemaMonitor(onSchemaRefusal: (error: unknown) => P
 
 export async function startSchemaBootCheck(
   connectionString: string,
-  poolFactory: SchemaCheckPoolFactory = (value) => new Pool({ connectionString: value, max: 1 }),
+  poolFactory: SchemaCheckPoolFactory = (value) => new Pool(poolConfigFor(value, { max: 1 })),
 ): Promise<void> {
   const pool = poolFactory(connectionString.trim());
   // An idle connection that drops is reported here, not thrown at the process.

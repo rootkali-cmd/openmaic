@@ -13,6 +13,7 @@ import {
 import { Pool } from 'pg';
 
 import { validateAppScene, validateAppStage } from '@/lib/document-store/validators';
+import { poolConfigFor } from '@/lib/persistence/connection-string';
 import { configuredLazyAssetByteStore } from '@/lib/persistence/asset-byte-store';
 import { resolveAssetPendingTtlMs } from '@/lib/persistence/asset-pending-ttl';
 import { resolveAssetQuotaBytes } from '@/lib/persistence/asset-quota';
@@ -40,7 +41,7 @@ export const PERSISTENCE_POOL_CONNECTION_TIMEOUT_MS = 10_000;
 /** The persistence pool a deployment gets unless it passes its own factory. */
 export const defaultPersistencePool: PersistencePoolFactory = (connectionString) =>
   new Pool({
-    connectionString: withSslForRemoteHosts(connectionString),
+    ...poolConfigFor(connectionString),
     connectionTimeoutMillis: PERSISTENCE_POOL_CONNECTION_TIMEOUT_MS,
   });
 
@@ -51,20 +52,9 @@ export const defaultPersistencePool: PersistencePoolFactory = (connectionString)
  * encrypted without chain verification: since pg 8.11 `require` is treated as
  * `verify-full`, which fails against Heroku's rotating CA chain. Local
  * development databases (`localhost`, `127.0.0.1`) keep plaintext as before.
+ * The helper lives in ./connection-string, shared with the other ad-hoc
+ * pools/clients (schema boot check, asset collector, agent event LISTEN).
  */
-function withSslForRemoteHosts(connectionString: string): string {
-  if (/(?:[?&]|^)sslmode=/.test(connectionString)) return connectionString;
-  const match = /^postgres(?:ql)?:\/\/([^/@]*)@([^/:?#]+)/.exec(connectionString);
-  const host = match?.[2];
-  if (!host || /^(localhost|127\.0\.0\.1|::1)$/.test(host)) return connectionString;
-  return appendSslMode(connectionString, 'sslmode=no-verify');
-}
-
-function appendSslMode(connectionString: string, mode: string): string {
-  return connectionString.includes('?')
-    ? `${connectionString}&${mode}`
-    : `${connectionString}?${mode}`;
-}
 
 /**
  * The process's persistence stores. There is deliberately no document store

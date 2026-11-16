@@ -133,7 +133,7 @@ export function startAssetCollectorSchedule(
   // indirect byte egress safely.
   const graceMs = resolveAssetCollectionGraceMs();
 
-  const pool = (deps.poolFactory ?? ((value) => new Pool({ connectionString: value, max: 2 })))(
+  const pool = (deps.poolFactory ?? ((value) => new Pool(poolConfigFor(value, { max: 2 }))))(
     connectionString,
   );
   const queryable = pool as unknown as ConnectableQueryable;
