@@ -47,17 +47,23 @@ export const defaultPersistencePool: PersistencePoolFactory = (connectionString)
 /**
  * Heroku (and most hosted PostgreSQL providers) require TLS but do not include
  * `sslmode` in the DATABASE_URL they attach, and `pg` does not negotiate TLS
- * unless the URL (or an ssl option) says to. Local development databases
- * (`localhost`, `127.0.0.1`) keep plaintext as before.
+ * unless the URL (or an ssl option) says to. `no-verify` keeps the connection
+ * encrypted without chain verification: since pg 8.11 `require` is treated as
+ * `verify-full`, which fails against Heroku's rotating CA chain. Local
+ * development databases (`localhost`, `127.0.0.1`) keep plaintext as before.
  */
 function withSslForRemoteHosts(connectionString: string): string {
   if (/(?:[?&]|^)sslmode=/.test(connectionString)) return connectionString;
   const match = /^postgres(?:ql)?:\/\/([^/@]*)@([^/:?#]+)/.exec(connectionString);
   const host = match?.[2];
   if (!host || /^(localhost|127\.0\.0\.1|::1)$/.test(host)) return connectionString;
+  return appendSslMode(connectionString, 'sslmode=no-verify');
+}
+
+function appendSslMode(connectionString: string, mode: string): string {
   return connectionString.includes('?')
-    ? `${connectionString}&sslmode=require`
-    : `${connectionString}?sslmode=require`;
+    ? `${connectionString}&${mode}`
+    : `${connectionString}?${mode}`;
 }
 
 /**
