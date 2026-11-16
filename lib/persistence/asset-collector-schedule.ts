@@ -39,6 +39,7 @@ import {
 import { Pool } from 'pg';
 
 import { resolveAssetCollectionGraceMs } from '@/lib/persistence/asset-collection-grace';
+import { poolConfigFor } from '@/lib/persistence/connection-string';
 import { resolveConfiguredAssetByteStore } from '@/lib/persistence/asset-byte-store';
 import { assetReferencePrincipalsForOwner } from '@/lib/persistence/owner-assets';
 import { withSchemaBootstrapLock } from '@/lib/persistence/schema-bootstrap-lock';
