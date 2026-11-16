@@ -24,16 +24,13 @@ export const runtime = 'nodejs';
  */
 export async function GET(request: Request): Promise<Response> {
   return withRequestOwner(request, async (principal, responseHeaders) => {
-    const target = new URL('/', new URL(request.url).origin);
+    // A relative Location: behind Heroku's router `request.url` carries the
+    // internal host/port, not the public one.
     if (principal.kind === 'anonymous') {
-      target.searchParams.set('darsak-auth', 'failed');
+      responseHeaders.set('location', '/?darsak-auth=failed');
+    } else {
+      responseHeaders.set('location', '/');
     }
-    return new Response(null, {
-      status: 302,
-      headers: (() => {
-        responseHeaders.set('location', target.toString());
-        return responseHeaders;
-      })(),
-    });
+    return new Response(null, { status: 302, headers: responseHeaders });
   });
 }
