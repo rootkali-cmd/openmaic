@@ -20,7 +20,8 @@ import type { OwnerAuthMethod, OwnerAuthMethodResult } from '@/lib/server/identi
 
 const ISSUER = 'darsak-api';
 const SESSION_AUDIENCE = 'openmaic-session';
-const ASSERTION_AUDIENCE = 'openmaic-assertion';
+/** Matches OPENMAIC_ASSERTION_AUDIENCE in the Darsak API env (default 'openmaic'). */
+const ASSERTION_AUDIENCE = 'openmaic';
 const COOKIE_NAME = 'darsak_owner';
 /** Session lifetime: 30 days, renewed by the next successful sign-in. */
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
