@@ -278,11 +278,11 @@ export function BoardView() {
 
       {empty ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-5 px-6 text-center">
-          <p className="wb-hand text-[clamp(1.6rem,3.4vw,2.6rem)] leading-relaxed text-[#3D315E]">
+          <p
+            className="wb-hand max-w-xl text-[clamp(1.5rem,3vw,2.2rem)] italic leading-relaxed text-[#3D315E]/90"
+            style={{ fontFamily: "'Caveat', 'Aref Ruqaa', cursive" }}
+          >
             {t('wb.empty.title')}
-          </p>
-          <p className="max-w-md text-[13px] leading-7 text-[#6C62A0]">
-            {t('wb.empty.hint')}
           </p>
           <div className="pointer-events-auto flex flex-wrap justify-center gap-2">
             {(['wb.example.1', 'wb.example.2', 'wb.example.3'] as const).map((key) => (

@@ -9,7 +9,7 @@
  * The mic uses the browser's Speech Recognition with the platform ASR hook;
  * hosted Arabic ASR can slot in behind the same interface later.
  */
-import { ArrowUp, ImagePlus, Mic, MicOff, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { ImagePlus, Mic, MicOff, Pause, Play, Send, Volume2, VolumeX } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useBrowserASR } from '@/lib/hooks/use-browser-asr';
@@ -140,7 +140,7 @@ export function InputBar({ onAsk, busy }: InputBarProps) {
               aria-label={t('wb.send')}
               className="grid size-9 shrink-0 place-items-center rounded-full bg-[#9178E6] text-white transition hover:bg-[#7C63D8] disabled:bg-white/[0.08] disabled:text-white/30"
             >
-              <ArrowUp className="size-4.5" aria-hidden />
+              <Send className="size-4.5 -scale-x-100" aria-hidden />
             </button>
           )}
         </div>

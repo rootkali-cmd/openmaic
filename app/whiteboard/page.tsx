@@ -11,15 +11,19 @@
  *   5. Session state        → board store + lesson player (undo/redo, queue)
  *
  * This file owns only the conversation loop: question → lesson → play.
+ * The global app shell (sidebar + top bar) frames the board; questions can
+ * also arrive from the tutor home via ?q=.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { AppShell } from '@/components/shell/app-shell';
 import { BoardView } from '@/components/whiteboard-engine/board-view';
 import { InputBar } from '@/components/whiteboard-engine/input-bar';
-import { Sidebar } from '@/components/whiteboard-engine/sidebar';
+import { LessonStatus } from '@/components/whiteboard-engine/lesson-status';
 import { TeacherHud } from '@/components/whiteboard-engine/teacher-hud';
-import { Topbar } from '@/components/whiteboard-engine/topbar';
+import { useI18n } from '@/lib/hooks/use-i18n';
 import { resolveBBox, useBoardStore } from '@/lib/whiteboard-engine/board-store';
 import { FALLBACK_LESSON, type Lesson } from '@/lib/whiteboard-engine/lesson';
 import { usePlayerStore } from '@/lib/whiteboard-engine/player';
@@ -51,13 +55,15 @@ function computeBoardBounds(): Bounds | null {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-export default function WhiteboardPage() {
+function WhiteboardSurface() {
+  const { t } = useI18n();
+  const searchParams = useSearchParams();
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const historyRef = useRef<{ question: string; title: string }[]>([]);
 
   const ask = useCallback(async (question: string) => {
-    if (busyRef.current) return;
+    if (!question.trim() || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
 
@@ -114,17 +120,34 @@ export default function WhiteboardPage() {
     }
   }, []);
 
+  // Questions handed over from the tutor home arrive as ?q=.
+  const handedQuestion = searchParams.get('q');
+  useEffect(() => {
+    if (!handedQuestion) return;
+    ask(handedQuestion.trim());
+    // Consume it once: replace the URL so a refresh doesn't re-ask.
+    window.history.replaceState(null, '', '/whiteboard');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per handed question
+  }, [handedQuestion]);
+
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#0B0D16]">
-      <Sidebar />
-      <div className="flex h-screen flex-col pl-[236px]">
-        <Topbar />
-        <main className="relative min-h-0 flex-1">
-          <BoardView />
-          <TeacherHud />
-          <InputBar onAsk={ask} busy={busy} />
-        </main>
-      </div>
-    </div>
+    <AppShell
+      title={t('wb.title')}
+      actions={<LessonStatus />}
+      contentClassName="overflow-hidden"
+    >
+      <BoardView />
+      <TeacherHud />
+      <InputBar onAsk={ask} busy={busy} />
+    </AppShell>
+  );
+}
+
+export default function WhiteboardPage() {
+  // useSearchParams needs a Suspense boundary for prerendered routes.
+  return (
+    <Suspense fallback={<div className="h-screen w-full bg-[#0B0D16]" />}>
+      <WhiteboardSurface />
+    </Suspense>
   );
 }

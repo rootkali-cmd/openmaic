@@ -3286,5 +3286,76 @@
       "2": "Draw the water cycle",
       "3": "Explain photosynthesis"
     }
+  },
+  "shell": {
+    "nav": {
+      "tutor": "Tutor",
+      "board": "Smart Whiteboard",
+      "courses": "My Courses",
+      "search": "Search",
+      "plans": "Study Plans",
+      "tests": "Tests",
+      "leaderboard": "Leaderboard"
+    },
+    "home": "Home",
+    "nav_label": "Sections",
+    "soon": "Soon",
+    "timer": {
+      "title": "Study timer"
+    },
+    "pro": {
+      "title": "Darsak Pro",
+      "blurb": "Unlimited lessons and smarter voices — coming soon."
+    },
+    "guest": {
+      "name": "Guest",
+      "hint": "Sign in to save your lessons"
+    }
+  },
+  "tutor": {
+    "greeting": "Ready to learn something new today?",
+    "greetingMorning": "Good morning! Ready to start?",
+    "greetingEvening": "Good evening! Ready to review?",
+    "subtitle": "Ask me anything and I'll explain it on the board, out loud, while drawing.",
+    "placeholder": "Ask me anything…",
+    "send": "Send to the whiteboard",
+    "boardChip": "Explain on the board",
+    "upload": "Upload",
+    "youtube": "YouTube",
+    "notes": "Notes",
+    "quiz": "Quiz",
+    "flashcards": "Flashcards",
+    "soonHint": "Those tools are coming soon — the smart whiteboard is live today."
+  },
+  "sections": {
+    "search": {
+      "title": "Search",
+      "placeholder": "Find study notes, quizzes and more…",
+      "filter": "Filter",
+      "trending": "Trending",
+      "trend1": "Physics",
+      "trend2": "Organic Chemistry",
+      "trend3": "Calculus",
+      "trend4": "Grammar"
+    },
+    "plans": {
+      "title": "Study Plans",
+      "headline": "Ready by exam day",
+      "sub": "We'll map out exactly what to study and when, all the way to exam day.",
+      "cta": "Create Study Plan"
+    },
+    "tests": {
+      "title": "Tests",
+      "headline": "Mock exams",
+      "sub": "Test yourself before the real exam and see exactly where you stand.",
+      "cta": "Start a test",
+      "how": "How does it work?"
+    },
+    "leaderboard": {
+      "title": "Leaderboard",
+      "headline": "Earn points to participate",
+      "sub": "Every lesson you finish earns points that move you up the board.",
+      "cta": "Earn points"
+    }
   }
 }
