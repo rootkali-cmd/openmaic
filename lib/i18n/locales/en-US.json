@@ -3220,5 +3220,71 @@
       },
       "close": "Close guide"
     }
+  },
+  "wb": {
+    "back": "Back",
+    "title": "Smart Whiteboard",
+    "soon": "Soon",
+    "stop": "Stop lesson",
+    "undo": "Undo",
+    "redo": "Redo",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit board",
+    "clearBoard": "Clear board",
+    "deleteElement": "Delete element",
+    "nav": {
+      "classes": "My Classes",
+      "board": "Smart Whiteboard",
+      "search": "Search",
+      "plans": "Study Plans",
+      "tests": "Tests",
+      "leaderboard": "Leaderboard"
+    },
+    "pro": {
+      "title": "Darsak Pro",
+      "blurb": "Unlimited lessons and smarter voices — coming soon."
+    },
+    "guest": {
+      "name": "Guest",
+      "hint": "Sign in to save your lessons"
+    },
+    "status": {
+      "idle": "Ready",
+      "loading": "Preparing the lesson…",
+      "playing": "Tutor is teaching",
+      "paused": "Lesson paused",
+      "done": "Lesson finished",
+      "muted": "Voice muted"
+    },
+    "teacher": {
+      "name": "Darsak Tutor"
+    },
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "pause": "Pause",
+    "resume": "Resume",
+    "followOn": "Follow the tutor",
+    "followOff": "Stop following",
+    "placeholder": "Ask me anything…",
+    "listening": "Listening… go ahead",
+    "send": "Send",
+    "thinking": "Preparing your lesson…",
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "mic": "Speak",
+    "micStop": "Stop recording",
+    "voiceOn": "Voice replies on",
+    "voiceOff": "Voice replies off",
+    "attach": "Attach image",
+    "attachSoon": "Image attachment coming soon",
+    "empty": {
+      "title": "Ask me anything… and I'll draw it right here",
+      "hint": "The tutor speaks while writing on the board, in the same moment. Type your question below, or tap the mic and ask out loud."
+    },
+    "example": {
+      "1": "Explain Newton's second law",
+      "2": "Draw the water cycle",
+      "3": "Explain photosynthesis"
+    }
   }
 }

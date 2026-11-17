@@ -1,0 +1,107 @@
+/* ============================================================
+   AI Whiteboard Engine — board surface, hand-drawn stroke
+   animation, and the teacher HUD pulses.
+   Palette: lavender paper, deep purple ink, yellow emphasis.
+   ============================================================ */
+
+.wb-sheet-stage {
+  background-color: #ddd6f0;
+}
+
+.wb-sheet {
+  background-color: #e9e4f7;
+  background-image: radial-gradient(circle, rgba(91, 63, 199, 0.2) 1.3px, transparent 1.5px);
+  background-size: 26px 26px;
+  border: 1px solid rgba(61, 49, 94, 0.14);
+  border-radius: 8px;
+}
+
+/* Handwritten educational type: Caveat for latin/numerals, Aref Ruqaa for
+   Arabic (both declared by the whiteboard layout). */
+.wb-hand {
+  font-family: 'Caveat', 'Aref Ruqaa', 'Cairo', sans-serif;
+}
+
+.mono {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  letter-spacing: 0.08em;
+}
+
+/* Progressive stroke reveal: paths draw themselves with the teacher's chalk. */
+@keyframes wb-stroke-in {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.wb-draw-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: wb-stroke-in 0.72s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Live-recording dot on the teacher HUD and status pill. */
+@keyframes wb-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.78);
+  }
+}
+
+.wb-live-dot {
+  animation: wb-dot-pulse 1.15s ease-in-out infinite;
+}
+
+/* Speaking waveform inside the teacher avatar. */
+@keyframes wb-wave-bar {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.wb-wave rect {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wb-wave-bar 0.9s ease-in-out infinite;
+}
+
+.wb-wave rect:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.wb-wave rect:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.wb-wave rect:nth-child(4) {
+  animation-delay: 0.36s;
+}
+.wb-wave rect:nth-child(5) {
+  animation-delay: 0.48s;
+}
+
+/* KaTeX math sits on the lavender paper, not on white. */
+.wb-sheet .katex {
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-draw-stroke {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .wb-live-dot,
+  .wb-wave rect {
+    animation: none;
+  }
+}
