@@ -219,12 +219,18 @@ export function BoardView() {
 
   const empty = elements.length === 0;
 
-  /* The pen sits at the end of the newest stroke; it is derived, never
-     stored, so no effect has to push state to show it. */
+  /* The pen is derived from the newest element, never stored. It starts at
+     the far edge of that element and sweeps across it (right→left for text,
+     left→right for shapes), so the reveal reads as live handwriting. */
+  const penElement = lastRevealedId
+    ? elements.find((el) => el.id === lastRevealedId)
+    : undefined;
   const penBox = lastRevealedId ? resolveBBox(elements, lastRevealedId) : null;
   const penVisible = Boolean(penBox) && status === 'playing';
   const penX = penBox ? penBox.x + penBox.w : 0;
   const penY = penBox ? penBox.y + penBox.h : 0;
+  const penRightToLeft = penElement?.cmd.op === 'TEXT';
+  const penSweep = penBox ? Math.min(Math.max(penBox.w, 24), 420) : 0;
 
   return (
     <div
@@ -249,10 +255,21 @@ export function BoardView() {
 
         {penVisible ? (
           <div className="wb-pen" style={{ left: penX, top: penY }} aria-hidden>
-            {/* keyed by reveal so the flash replays on every stroke */}
-            <div key={revealSeq} className="wb-pen-flash">
-              <Pencil className="wb-pen-icon size-4" />
-              <span className="wb-pen-label">{t('wb.penLabel')}</span>
+            {/* keyed by reveal so the sweep replays on every stroke */}
+            <div
+              key={revealSeq}
+              className="wb-pen-write"
+              style={
+                {
+                  '--pen-from': penRightToLeft ? '0px' : `${-penSweep}px`,
+                  '--pen-to': penRightToLeft ? `${-penSweep}px` : '0px',
+                } as React.CSSProperties
+              }
+            >
+              <div className="wb-pen-flash">
+                <Pencil className="wb-pen-icon size-4" />
+                <span className="wb-pen-label">{t('wb.penLabel')}</span>
+              </div>
             </div>
           </div>
         ) : null}

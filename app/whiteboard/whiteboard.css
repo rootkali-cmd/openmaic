@@ -119,6 +119,20 @@
   animation: wb-pen-flash 1.9s ease-out forwards;
 }
 
+/* The sweep: the nib travels across the newest stroke while it inks in. */
+.wb-pen-write {
+  animation: wb-pen-write 1.05s cubic-bezier(0.3, 0, 0.35, 1) forwards;
+}
+
+@keyframes wb-pen-write {
+  from {
+    transform: translateX(var(--pen-from, 0px));
+  }
+  to {
+    transform: translateX(var(--pen-to, 0px));
+  }
+}
+
 .wb-pen-icon {
   color: #5b3fc7;
   filter: drop-shadow(0 2px 3px rgba(61, 49, 94, 0.35));
@@ -176,5 +190,9 @@
   }
   .wb-pen {
     transition: none;
+  }
+  .wb-pen-write {
+    animation: none;
+    transform: translateX(var(--pen-to, 0px));
   }
 }

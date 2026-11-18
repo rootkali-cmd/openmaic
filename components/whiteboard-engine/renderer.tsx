@@ -243,9 +243,9 @@ function renderCommand(
       return (
         <motion.g
           key={key}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.215, 0.61, 0.355, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, ease: [0.215, 0.61, 0.355, 1] }}
         >
           {/* rotation lives on an inner plain <g>: motion owns the wrapper's transform */}
           <g transform={cmd.rotate ? `rotate(${cmd.rotate} ${cmd.x} ${cmd.y})` : undefined}>
@@ -275,9 +275,9 @@ function renderCommand(
       return (
         <motion.g
           key={key}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.215, 0.61, 0.355, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, ease: [0.215, 0.61, 0.355, 1] }}
         >
           <foreignObject
             x={cmd.x}
