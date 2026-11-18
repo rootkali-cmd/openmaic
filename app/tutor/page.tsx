@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { AppShell } from '@/components/shell/app-shell';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { requestLesson } from '@/lib/whiteboard-engine/lesson-client';
 
 interface ChatMessage {
   id: number;
@@ -30,10 +31,6 @@ interface ChatMessage {
   text: string;
   /** The question that produced this answer, for the board hand-off. */
   question?: string;
-}
-
-interface LessonBeat {
-  speech?: string;
 }
 
 export default function TutorPage() {
@@ -73,21 +70,12 @@ export default function TutorPage() {
       setBusy(true);
 
       try {
-        const response = await fetch('/api/whiteboard/lesson', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question, locale }),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = (await response.json()) as {
-          success?: boolean;
-          beats?: LessonBeat[];
-        };
+        const data = await requestLesson({ question, locale });
         const answer = (data.beats ?? [])
           .map((beat) => (beat.speech ?? '').trim())
           .filter(Boolean)
           .join(' ');
-        if (!data.success || !answer) throw new Error('malformed answer');
+        if (!answer) throw new Error('malformed answer');
 
         nextId.current += 1;
         setMessages((current) => [

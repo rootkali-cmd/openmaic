@@ -26,6 +26,7 @@ import { TeacherHud } from '@/components/whiteboard-engine/teacher-hud';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { resolveBBox, useBoardStore } from '@/lib/whiteboard-engine/board-store';
 import { FALLBACK_LESSON, type Lesson } from '@/lib/whiteboard-engine/lesson';
+import { requestLesson } from '@/lib/whiteboard-engine/lesson-client';
 import { usePlayerStore } from '@/lib/whiteboard-engine/player';
 
 interface Bounds {
@@ -86,23 +87,12 @@ function WhiteboardSurface() {
     };
 
     try {
-      const response = await fetch('/api/whiteboard/lesson', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question,
-          existingBounds: computeBoardBounds(),
-          history: historyRef.current.slice(-3),
-        }),
+      const data = await requestLesson({
+        question,
+        existingBounds: computeBoardBounds(),
+        history: historyRef.current.slice(-3),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = (await response.json()) as {
-        success?: boolean;
-        title?: string;
-        beats?: Lesson['beats'];
-        fallback?: boolean;
-      };
-      if (!data.success || !Array.isArray(data.beats) || data.beats.length === 0) {
+      if (!Array.isArray(data.beats) || data.beats.length === 0) {
         throw new Error('malformed lesson payload');
       }
       deliver({ title: data.title?.trim() || question, beats: data.beats });

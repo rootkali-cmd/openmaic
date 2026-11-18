@@ -17,6 +17,7 @@ import {
   apiSuccess,
   modelAuthorizationResponse,
 } from '@/lib/server/api-response';
+import { createLessonJob, finishLessonJob, readLessonJob } from '@/lib/server/lesson-jobs';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { BOARD_HEIGHT, BOARD_WIDTH } from '@/lib/whiteboard-engine/dsl';
 import { FALLBACK_LESSON, parseLesson } from '@/lib/whiteboard-engine/lesson';
@@ -98,21 +99,74 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(req: NextRequest) {
-  let questionSnippet: string | undefined;
+  let body: LessonRequest;
   try {
-    const body = (await req.json()) as LessonRequest;
-    const question = body.question?.trim();
-    questionSnippet = question?.substring(0, 60);
+    body = (await req.json()) as LessonRequest;
+  } catch {
+    return apiError('INVALID_REQUEST', 400, 'invalid JSON body');
+  }
 
-    if (!question || question.length > 600) {
-      return apiError('INVALID_REQUEST', 400, 'question must be 1-600 characters');
-    }
+  const question = body.question?.trim();
+  const questionSnippet = question?.substring(0, 60);
 
-    const { model: languageModel, thinkingConfig, serverManaged } =
-      await resolveModelFromRequest(req, body, 'whiteboard-lesson');
+  if (!question || question.length > 600) {
+    return apiError('INVALID_REQUEST', 400, 'question must be 1-600 characters');
+  }
 
+  try {
+    const { model, thinkingConfig, serverManaged } = await resolveModelFromRequest(
+      req,
+      body,
+      'whiteboard-lesson',
+    );
+
+    // Answer immediately with a job id: the teaching model can take longer
+    // than the platform's request ceiling, so the work continues in-process
+    // and the client polls. See lib/server/lesson-jobs.ts.
+    const jobId = createLessonJob();
+    void generateLesson(jobId, {
+      question,
+      existingBounds: body.existingBounds ?? null,
+      history: body.history ?? [],
+      questionSnippet,
+      params: { model, thinkingConfig, serverManaged },
+    });
+    return apiSuccess({ jobId }, 202);
+  } catch (error) {
+    const authorization = modelAuthorizationResponse(error);
+    if (authorization) return authorization;
+    log.error(`Lesson job could not start [q="${questionSnippet ?? 'unknown'}..."]`, error);
+    return apiError('INTERNAL_ERROR', 500, 'lesson job could not start');
+  }
+}
+
+/** Poll a lesson job: `pending` until the model finishes, then the lesson. */
+export async function GET(req: NextRequest) {
+  const jobId = req.nextUrl.searchParams.get('job');
+  if (!jobId) return apiError('INVALID_REQUEST', 400, 'job is required');
+  const state = readLessonJob(jobId);
+  if (state.status === 'failed') {
+    return apiSuccess({ fallback: true, ...state }, 200);
+  }
+  return apiSuccess({ ...state }, 200);
+}
+
+interface GenerateContext {
+  question: string;
+  existingBounds: LessonRequest['existingBounds'];
+  history: NonNullable<LessonRequest['history']>;
+  questionSnippet?: string;
+  params: {
+    model: Parameters<typeof callLLM>[0]['model'];
+    thinkingConfig: Parameters<typeof callLLM>[3];
+    serverManaged: boolean;
+  };
+}
+
+async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void> {
+  const { question, existingBounds: bounds, history, questionSnippet, params } = ctx;
+  try {
     // Placement guidance: never draw on top of an existing lesson.
-    const bounds = body.existingBounds;
     let placement =
       '- السبورة فارغة: وزّع المحتوى من الأعلى للأسفل تاركاً مساحة بين الكتل.';
     if (bounds && bounds.h > 0) {
@@ -126,8 +180,8 @@ export async function POST(req: NextRequest) {
     }
 
     const historyContext =
-      body.history && body.history.length > 0
-        ? `\nسياق المحادثة (أسئلة سابقة للطالب):\n${body.history
+      history.length > 0
+        ? `\nسياق المحادثة (أسئلة سابقة للطالب):\n${history
             .slice(-3)
             .map((h) => `- "${h.question}" → درس "${h.title}"`)
             .join('\n')}\nإذا كان السؤال الحالي متابعة له، فالحق الإجابة عليه ضمن الدرس نفسه.\n`
@@ -140,15 +194,16 @@ export async function POST(req: NextRequest) {
 
     const result = await callLLM(
       {
-        model: languageModel,
+        model: params.model,
         system,
         prompt: `${historyContext}سؤال الطالب: ${question}\n\nأعد الدرس JSON الآن.`,
-        maxOutputTokens: 5000,
+        maxOutputTokens: 2600,
+        abortSignal: AbortSignal.timeout(110_000),
       },
       'whiteboard-lesson',
       undefined,
-      thinkingConfig,
-      { serverManaged },
+      params.thinkingConfig,
+      { serverManaged: params.serverManaged },
     );
 
     const parsed = parseLesson(extractJson(result.text ?? ''));
@@ -157,31 +212,35 @@ export async function POST(req: NextRequest) {
       log.info(
         `Lesson generated [q="${questionSnippet}...", beats=${parsed.lesson.beats.length}, dropped=${parsed.dropped}]`,
       );
-      return apiSuccess({
+      finishLessonJob(jobId, {
+        status: 'done',
+        success: true,
         title: parsed.lesson.title,
         beats: parsed.lesson.beats,
         dropped: parsed.dropped,
         fallback: false,
       });
+      return;
     }
 
     // The board must never dead-end on a malformed model reply: fall back to
     // a hand-written lesson instead of showing an error.
     log.warn(`Model reply unparseable, serving fallback lesson [q="${questionSnippet}..."]`);
-    return apiSuccess({
+    finishLessonJob(jobId, {
+      status: 'done',
+      success: true,
       title: FALLBACK_LESSON.title,
       beats: FALLBACK_LESSON.beats,
       dropped: 0,
       fallback: true,
     });
   } catch (error) {
-    const authorization = modelAuthorizationResponse(error);
-    if (authorization) return authorization;
-
     // Network/provider failure: same contract — the student still gets a
     // lesson, clearly flagged as fallback.
     log.error(`Whiteboard lesson failed [q="${questionSnippet ?? 'unknown'}..."]`, error);
-    return apiSuccess({
+    finishLessonJob(jobId, {
+      status: 'done',
+      success: true,
       title: FALLBACK_LESSON.title,
       beats: FALLBACK_LESSON.beats,
       dropped: 0,
