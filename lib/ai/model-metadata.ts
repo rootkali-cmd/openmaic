@@ -440,6 +440,17 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
     ['low', 'medium', 'high'],
     'medium',
   ),
+  // GLM 5.3 on OpenRouter always thinks and defaults to max effort, which can
+  // burn the whole output budget on hidden reasoning. Expose the native effort
+  // ladder so callers (the whiteboard lesson) can ask for a quick reply.
+  [getModelMetadataKey('openrouter', 'z-ai/glm-5.3-flash')]: {
+    ...glm53Effort,
+    requestAdapter: 'openrouter',
+  },
+  [getModelMetadataKey('openrouter', 'z-ai/glm-5.3')]: {
+    ...glm53Effort,
+    requestAdapter: 'openrouter',
+  },
 
   [getModelMetadataKey('grok', 'grok-4.6')]: grok46Effort,
   [getModelMetadataKey('grok', 'grok-4.5')]: grok45Effort,
