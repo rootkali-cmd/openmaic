@@ -6,7 +6,7 @@
  * beside the teacher's avatar. The follow toggle rides along as a fourth
  * control because the camera is part of the teaching experience here.
  */
-import { Crosshair, Mic, MicOff, Pause, Play } from 'lucide-react';
+import { Crosshair, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { usePlayerStore } from '@/lib/whiteboard-engine/player';
@@ -98,7 +98,7 @@ export function TeacherHud() {
         active={!muted}
         onClick={() => setMuted(!muted)}
       >
-        {muted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+        {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
       </HudButton>
 
       <HudButton

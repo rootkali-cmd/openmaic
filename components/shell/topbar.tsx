@@ -92,9 +92,9 @@ export function ShellTopbar({
         {actions}
         <span
           title={t('shell.timer.title')}
-          className="mono flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1.5 text-[11px] tabular-nums text-white/55 transition hover:bg-white/[0.1]"
+          className="flex items-center gap-1.5 rounded-full bg-white/[0.05] px-2.5 py-1.5 text-[11px] tabular-nums text-white/65 ring-1 ring-white/[0.06] transition hover:bg-white/[0.09]"
         >
-          <Timer className="size-3.5" aria-hidden />
+          <Timer className="size-3.5 text-[#9178E6]" aria-hidden />
           {formatElapsed(timerMs)}
         </span>
       </div>

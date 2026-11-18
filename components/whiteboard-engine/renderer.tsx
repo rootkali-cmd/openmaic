@@ -44,6 +44,8 @@ const BOARD_FONT = "'Caveat', 'Aref Ruqaa', 'Cairo', sans-serif";
 interface RendererProps {
   elements: BoardElement[];
   selectedId?: string | null;
+  /** The board can grow taller as lessons stack; default is one full board. */
+  worldHeight?: number;
   onElementPointerDown?: (event: React.PointerEvent, elementId: string) => void;
   onBackgroundPointerDown?: (event: React.PointerEvent) => void;
 }
@@ -763,6 +765,7 @@ function renderCommand(
 export function WhiteboardRenderer({
   elements,
   selectedId,
+  worldHeight = BOARD_HEIGHT,
   onElementPointerDown,
   onBackgroundPointerDown,
 }: RendererProps) {
@@ -830,7 +833,7 @@ export function WhiteboardRenderer({
 
   return (
     <svg
-      viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`}
+      viewBox={`0 0 ${BOARD_WIDTH} ${worldHeight}`}
       className="absolute inset-0 h-full w-full select-none"
       style={{ touchAction: 'none' }}
       onPointerDown={(event) => {

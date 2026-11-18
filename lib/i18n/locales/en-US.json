@@ -3285,7 +3285,8 @@
       "1": "Explain Newton's second law",
       "2": "Draw the water cycle",
       "3": "Explain photosynthesis"
-    }
+    },
+    "penLabel": "Darsak"
   },
   "shell": {
     "nav": {
@@ -3325,7 +3326,12 @@
     "notes": "Notes",
     "quiz": "Quiz",
     "flashcards": "Flashcards",
-    "soonHint": "Those tools are coming soon — the smart whiteboard is live today."
+    "soonHint": "Those tools are coming soon — the smart whiteboard is live today.",
+    "thinking": "Darsak is writing…",
+    "answerError": "Sorry, I couldn't reach the teacher. Try again, or open it on the whiteboard.",
+    "openBoard": "Watch it explained on the whiteboard",
+    "teacher": "Darsak",
+    "you": "You"
   },
   "sections": {
     "search": {
