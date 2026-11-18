@@ -193,7 +193,6 @@ function TextLines({
       fontSize={size}
       fontWeight={weight}
       textAnchor={anchor}
-      direction="rtl"
       style={{ fontFamily: BOARD_FONT, paintOrder: 'stroke' }}
     >
       {lines.map((line, i) => (
@@ -257,7 +256,6 @@ function renderCommand(
               fontSize={cmd.size}
               fontWeight={cmd.weight}
               textAnchor={cmd.anchor}
-              direction="rtl"
               style={{ fontFamily: BOARD_FONT }}
             >
               {cmd.text}
