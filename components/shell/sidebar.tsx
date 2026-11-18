@@ -18,7 +18,7 @@ export function ShellSidebar() {
   const activeKey = activeNavKey(pathname);
 
   return (
-    <aside className="fixed top-0 left-0 z-40 flex h-screen w-[236px] flex-col border-r border-white/[0.06] bg-[#0B0D16]">
+    <aside className="fixed top-0 left-0 z-40 hidden h-screen w-[236px] flex-col border-r border-white/[0.06] bg-[#0B0D16] md:flex">
       <Link
         href="/tutor"
         className="flex items-center gap-2.5 px-5 pt-5 pb-4"

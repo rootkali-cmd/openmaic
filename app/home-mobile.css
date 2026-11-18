@@ -846,3 +846,19 @@ html:has(.home-page[data-mobile='true']) .home-settings-dialog {
     animation: home-options-back 180ms ease-out;
   }
 }
+
+/* When the courses home is framed by the app shell, it must fill the content
+   area rather than fix itself over the whole viewport (the fixed layout is
+   only for the standalone mobile experience). */
+.darsak-shell-content .home-page[data-mobile='true'] {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  min-height: 100%;
+}
+
+/* Keep the floating course tools inside the shell content area on phones. */
+.darsak-shell-content .home-page[data-mobile='true'] .home-top-tools {
+  position: absolute;
+  top: 12px;
+}

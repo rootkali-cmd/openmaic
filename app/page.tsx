@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { HomeLibrary } from '@/components/home/home-library';
+import { AppShell } from '@/components/shell/app-shell';
 import { useMobileLayout } from '@/lib/adaptive/adaptive-provider';
 import { installPageScrollBoundary } from '@/lib/adaptive/page-scroll-boundary';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -759,7 +760,7 @@ function HomePage() {
     <div
       data-testid="home-page"
       data-mobile={mobile}
-      className="home-page min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden"
+      className="home-page min-h-full w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-24 md:p-8 md:pt-24 overflow-x-hidden"
     >
       <input
         ref={fileInputRef}
@@ -792,7 +793,7 @@ function HomePage() {
       {/* Shared language, theme and desktop settings controls. */}
       <div
         ref={toolbarRef}
-        className="home-top-tools fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
+        className="home-top-tools fixed top-[64px] right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
       >
         {/* Language Selector */}
         <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
@@ -2389,5 +2390,15 @@ function ClassroomCard({
 }
 
 export default function Page() {
-  return <HomePage />;
+  const { t } = useI18n();
+  return (
+    <AppShell title={t('shell.nav.courses')} contentClassName="overflow-y-auto">
+      {/* The courses surface is the existing classroom home; the `dark`
+          wrapper opts it into the shell's dark chrome instead of the
+          legacy light gradient. */}
+      <div className="dark min-h-full">
+        <HomePage />
+      </div>
+    </AppShell>
+  );
 }

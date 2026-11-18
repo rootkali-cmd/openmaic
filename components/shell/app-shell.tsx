@@ -25,9 +25,13 @@ export function AppShell({
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[#0B0D16]">
       <ShellSidebar />
-      <div className="flex h-screen flex-col pl-[236px]">
+      <div className="flex h-screen flex-col md:pl-[236px]">
         <ShellTopbar title={title} actions={actions} />
-        <main className={`relative min-h-0 flex-1 ${contentClassName ?? ''}`}>{children}</main>
+        <main
+          className={`darsak-shell-content relative min-h-0 flex-1 ${contentClassName ?? ''}`}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );
