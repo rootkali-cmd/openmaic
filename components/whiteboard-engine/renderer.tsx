@@ -40,6 +40,13 @@ const VIOLET = PALETTE.violet;
 const YELLOW = PALETTE.yellow;
 
 const BOARD_FONT = "'Caveat', 'Aref Ruqaa', 'Cairo', sans-serif";
+/* Calligraphic Ruqaa falls apart below heading size: labels, table cells and
+   node text switch to the UI face so Arabic stays legible at 16px. */
+const BOARD_LABEL_FONT = "'Cairo Variable', 'Cairo', ui-sans-serif, system-ui, sans-serif";
+
+function boardFont(size: number): string {
+  return size >= 24 ? BOARD_FONT : BOARD_LABEL_FONT;
+}
 
 interface RendererProps {
   elements: BoardElement[];
@@ -193,7 +200,7 @@ function TextLines({
       fontSize={size}
       fontWeight={weight}
       textAnchor={anchor}
-      style={{ direction: 'ltr', fontFamily: BOARD_FONT, paintOrder: 'stroke' }}
+      style={{ direction: 'ltr', fontFamily: boardFont(size), paintOrder: 'stroke' }}
     >
       {lines.map((line, i) => (
         <tspan key={i} x={x} dy={i === 0 ? 0 : lineHeight}>
@@ -256,7 +263,7 @@ function renderCommand(
               fontSize={cmd.size}
               fontWeight={cmd.weight}
               textAnchor={cmd.anchor}
-              style={{ direction: 'ltr', fontFamily: BOARD_FONT }}
+              style={{ direction: 'ltr', fontFamily: boardFont(cmd.size) }}
             >
               {cmd.text}
             </text>
