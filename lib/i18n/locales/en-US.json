@@ -3348,14 +3348,16 @@
       "title": "Study Plans",
       "headline": "Ready by exam day",
       "sub": "We'll map out exactly what to study and when, all the way to exam day.",
-      "cta": "Create Study Plan"
+      "cta": "Create Study Plan",
+      "action": "Create plan"
     },
     "tests": {
       "title": "Tests",
       "headline": "Mock exams",
       "sub": "Test yourself before the real exam and see exactly where you stand.",
       "cta": "Start a test",
-      "how": "How does it work?"
+      "how": "How does it work?",
+      "action": "Generate test"
     },
     "leaderboard": {
       "title": "Leaderboard",

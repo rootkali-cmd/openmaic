@@ -8,10 +8,11 @@ export default function StudyPlansPage() {
   return (
     <SoonSection
       navKey="plans"
-      icon={<Target className="size-14" strokeWidth={2.4} />}
+      icon={<Target />}
       headlineKey="sections.plans.headline"
       subKey="sections.plans.sub"
       ctaKey="sections.plans.cta"
+      actionKey="sections.plans.action"
     />
   );
 }
