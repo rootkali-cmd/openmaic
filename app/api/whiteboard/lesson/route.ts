@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { model, thinkingConfig, serverManaged } = await resolveModelFromRequest(
+    const { model, serverManaged } = await resolveModelFromRequest(
       req,
       body,
       'whiteboard-lesson',
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       existingBounds: body.existingBounds ?? null,
       history: body.history ?? [],
       questionSnippet,
-      params: { model, thinkingConfig, serverManaged },
+      params: { model, serverManaged },
     });
     return apiSuccess({ jobId }, 202);
   } catch (error) {
@@ -158,7 +158,6 @@ interface GenerateContext {
   questionSnippet?: string;
   params: {
     model: Parameters<typeof callLLM>[0]['model'];
-    thinkingConfig: Parameters<typeof callLLM>[3];
     serverManaged: boolean;
   };
 }
@@ -197,12 +196,15 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         model: params.model,
         system,
         prompt: `${historyContext}سؤال الطالب: ${question}\n\nأعد الدرس JSON الآن.`,
-        maxOutputTokens: 2600,
+        maxOutputTokens: 4000,
         abortSignal: AbortSignal.timeout(110_000),
       },
       'whiteboard-lesson',
       undefined,
-      params.thinkingConfig,
+      // This stage needs a short, well-formed JSON lesson, not a reasoning
+      // essay: at the model's default effort the whole output budget goes to
+      // hidden reasoning and the visible reply comes back empty.
+      { effort: 'low' },
       { serverManaged: params.serverManaged },
     );
 
@@ -225,7 +227,10 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
 
     // The board must never dead-end on a malformed model reply: fall back to
     // a hand-written lesson instead of showing an error.
-    log.warn(`Model reply unparseable, serving fallback lesson [q="${questionSnippet}..."]`);
+    log.warn(
+      `Model reply unparseable (finish=${result.finishReason ?? 'unknown'}, ` +
+        `chars=${(result.text ?? '').length}), serving fallback lesson [q="${questionSnippet}..."]`,
+    );
     finishLessonJob(jobId, {
       status: 'done',
       success: true,
