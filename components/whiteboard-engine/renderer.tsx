@@ -193,7 +193,7 @@ function TextLines({
       fontSize={size}
       fontWeight={weight}
       textAnchor={anchor}
-      style={{ fontFamily: BOARD_FONT, paintOrder: 'stroke' }}
+      style={{ direction: 'ltr', fontFamily: BOARD_FONT, paintOrder: 'stroke' }}
     >
       {lines.map((line, i) => (
         <tspan key={i} x={x} dy={i === 0 ? 0 : lineHeight}>
@@ -256,7 +256,7 @@ function renderCommand(
               fontSize={cmd.size}
               fontWeight={cmd.weight}
               textAnchor={cmd.anchor}
-              style={{ fontFamily: BOARD_FONT }}
+              style={{ direction: 'ltr', fontFamily: BOARD_FONT }}
             >
               {cmd.text}
             </text>
