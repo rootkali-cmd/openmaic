@@ -128,15 +128,30 @@ export function BoardView() {
     if (!bbox) return;
 
     const current = viewRef.current;
-    const cx = (bbox.x + bbox.w / 2) * current.scale;
-    const cy = (bbox.y + bbox.h / 2) * current.scale;
-    const screenX = current.tx + cx;
-    const screenY = current.ty + cy;
+
+    // Follow pans only as far as needed to keep the chalk on screen. Centering
+    // every reveal used to push the rest of the lesson off the edge; minimal
+    // panning keeps the board anchored and the lesson in context.
+    const margin = Math.round(Math.min(72, cw * 0.07));
+    const topSafe = margin;
+    // Keep the newest line clear of the floating question bar.
+    const bottomSafe = ch - Math.round(Math.min(128, ch * 0.2));
+    const left = current.tx + bbox.x * current.scale;
+    const top = current.ty + bbox.y * current.scale;
+    const right = left + bbox.w * current.scale;
+    const bottom = top + bbox.h * current.scale;
 
     let { tx, ty } = current;
-    // Keep the chalk inside a comfortable band; pull only when it drifts out.
-    if (screenX < cw * 0.22 || screenX > cw * 0.78) tx = cw / 2 - cx;
-    if (screenY < ch * 0.24 || screenY > ch * 0.72) ty = ch * 0.42 - cy;
+    if (right > cw - margin) tx -= right - (cw - margin);
+    if (bottom > bottomSafe) ty -= bottom - bottomSafe;
+    // Never pull the sheet off its top-left anchor to reveal empty paper:
+    // only push back when content is already hidden on that side.
+    if (tx < 0 && tx + bbox.x * current.scale < margin) {
+      tx = Math.min(0, margin - bbox.x * current.scale);
+    }
+    if (ty < 0 && ty + bbox.y * current.scale < topSafe) {
+      ty = Math.min(0, topSafe - bbox.y * current.scale);
+    }
 
     const next = clampView({ scale: current.scale, tx, ty }, cw, ch, worldRef.current);
     if (next.tx !== current.tx || next.ty !== current.ty) {

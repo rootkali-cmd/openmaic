@@ -39,6 +39,17 @@ export interface ParsedLesson {
 }
 
 /**
+ * A highlight is emphasis, not a background wash. Models occasionally paint
+ * half the board yellow, which buries the lesson; such regions are dropped
+ * rather than rendered.
+ */
+function isOversizedWash(cmd: DrawCommand): boolean {
+  if (cmd.op !== 'HIGHLIGHT' || !cmd.region) return false;
+  if (cmd.mode && cmd.mode !== 'wash') return false;
+  return cmd.region.w > 720 || cmd.region.h > 280;
+}
+
+/**
  * Validate the teaching model's JSON into a Lesson. Invalid beats are
  * dropped; invalid draw commands inside a beat are filtered out.
  */
@@ -51,8 +62,13 @@ export function parseLesson(input: unknown): ParsedLesson | null {
 
   parsed.data.beats.forEach((beat, index) => {
     const raw = Array.isArray(beat.draws) ? beat.draws : [];
-    const draws = parseDrawCommands(raw);
-    dropped += raw.length - draws.length;
+    const parsedDraws = parseDrawCommands(raw);
+    dropped += raw.length - parsedDraws.length;
+    const draws = parsedDraws.filter((cmd) => {
+      if (!isOversizedWash(cmd)) return true;
+      dropped += 1;
+      return false;
+    });
     const speech = beat.speech.trim();
     if (!speech && draws.length === 0) return; // empty beat — skip
     beats.push({ id: `b${index}`, speech, draws });
