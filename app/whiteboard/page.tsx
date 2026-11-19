@@ -92,7 +92,9 @@ function WhiteboardSurface() {
     try {
       const data = await requestLesson({
         question,
-        existingBounds: computeBoardBounds(),
+        // A fresh board starts at the top; only an interrupted lesson keeps
+        // its content, so only then does the model need the occupied bounds.
+        existingBounds: wasActive ? computeBoardBounds() : null,
         history: historyRef.current.slice(-3),
       });
       if (!Array.isArray(data.beats) || data.beats.length === 0) {
