@@ -11,7 +11,7 @@ import { parseDrawCommands, type DrawCommand } from './dsl';
 
 const beatSchema = z.object({
   /** The sentence the teacher says out loud (Modern Standard Arabic). */
-  speech: z.string().min(1).max(600),
+  speech: z.string().max(600).default(''),
   /** Drawing commands revealed progressively while the sentence plays. */
   draws: z.array(z.unknown()).max(8).default([]),
 });
@@ -53,8 +53,30 @@ function isOversizedWash(cmd: DrawCommand): boolean {
  * Validate the teaching model's JSON into a Lesson. Invalid beats are
  * dropped; invalid draw commands inside a beat are filtered out.
  */
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 export function parseLesson(input: unknown): ParsedLesson | null {
-  const parsed = lessonSchema.safeParse(input);
+  // Models drift on the soft limits (an over-long sentence, a ninth draw).
+  // Clamp those instead of rejecting a lesson that is otherwise usable.
+  const root = asRecord(input);
+  if (!root) return null;
+  const title = typeof root.title === 'string' ? root.title.trim().slice(0, 120) : '';
+  const rawBeats = Array.isArray(root.beats) ? root.beats.slice(0, 8) : [];
+  if (!title || rawBeats.length === 0) return null;
+
+  const normalized = rawBeats.map((beat) => {
+    const record = asRecord(beat) ?? {};
+    return {
+      speech: typeof record.speech === 'string' ? record.speech.trim().slice(0, 600) : '',
+      draws: Array.isArray(record.draws) ? record.draws.slice(0, 8) : [],
+    };
+  });
+
+  const parsed = lessonSchema.safeParse({ title, beats: normalized });
   if (!parsed.success) return null;
 
   let dropped = 0;

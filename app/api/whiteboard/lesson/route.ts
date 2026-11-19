@@ -90,15 +90,61 @@ const EXAMPLE = `مثال (اختصره كما تريد):
    {"op":"CIRCLE","cx":740,"cy":390,"r":100,"stroke":"#5B3FC7","label":"F = ma","labelSize":24}]}
 ]}`;
 
-function extractJson(text: string): unknown {
-  const cleaned = text.replace(/```(?:json)?/g, '').trim();
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (!match) return null;
+function tryParse(candidate: string): unknown {
   try {
-    return JSON.parse(match[0]);
+    return JSON.parse(candidate) as unknown;
   } catch {
-    return null;
+    // Models occasionally leave a trailing comma before a closing bracket.
+    const repaired = candidate.replace(/,\s*([}\]])/g, '$1');
+    if (repaired === candidate) return undefined;
+    try {
+      return JSON.parse(repaired) as unknown;
+    } catch {
+      return undefined;
+    }
   }
+}
+
+/** Index of the brace that closes the object opened at `start`. */
+function matchingBrace(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Pull the lesson object out of a model reply. The reply may be bare JSON, a
+ * fenced block, or prose that happens to contain braces (a LaTeX example
+ * before the JSON used to break the old `/\{.*\}/` match).
+ */
+function extractJson(text: string): unknown {
+  const cleaned = text.replace(/```(?:json)?/gi, '').trim();
+  const direct = tryParse(cleaned);
+  if (direct !== undefined) return direct;
+
+  for (let start = cleaned.indexOf('{'); start !== -1; start = cleaned.indexOf('{', start + 1)) {
+    const end = matchingBrace(cleaned, start);
+    if (end === -1) continue;
+    const parsed = tryParse(cleaned.slice(start, end + 1));
+    if (parsed !== undefined) return parsed;
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -248,7 +294,9 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
 
     log.warn(
       `Model reply unparseable (finish=${result.finishReason ?? 'unknown'}, ` +
-        `chars=${(result.text ?? '').length}) [q="${questionSnippet}..."]`,
+        `chars=${(result.text ?? '').length}, head=${JSON.stringify(
+          (result.text ?? '').slice(0, 160),
+        )}) [q="${questionSnippet}..."]`,
     );
     finishLessonJob(jobId, {
       status: 'failed',
