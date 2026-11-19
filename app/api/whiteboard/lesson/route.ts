@@ -20,7 +20,7 @@ import {
 import { createLessonJob, finishLessonJob, readLessonJob } from '@/lib/server/lesson-jobs';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { BOARD_HEIGHT, BOARD_WIDTH } from '@/lib/whiteboard-engine/dsl';
-import { parseLesson } from '@/lib/whiteboard-engine/lesson';
+import { parseLessonReply } from '@/lib/whiteboard-engine/lesson';
 
 const log = createLogger('Whiteboard Lesson');
 
@@ -89,63 +89,6 @@ const EXAMPLE = `مثال (اختصره كما تريد):
    {"op":"ARROW","x1":450,"y1":390,"x2":620,"y2":390,"color":"#9178E6","width":3},
    {"op":"CIRCLE","cx":740,"cy":390,"r":100,"stroke":"#5B3FC7","label":"F = ma","labelSize":24}]}
 ]}`;
-
-function tryParse(candidate: string): unknown {
-  try {
-    return JSON.parse(candidate) as unknown;
-  } catch {
-    // Models occasionally leave a trailing comma before a closing bracket.
-    const repaired = candidate.replace(/,\s*([}\]])/g, '$1');
-    if (repaired === candidate) return undefined;
-    try {
-      return JSON.parse(repaired) as unknown;
-    } catch {
-      return undefined;
-    }
-  }
-}
-
-/** Index of the brace that closes the object opened at `start`. */
-function matchingBrace(text: string, start: number): number {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < text.length; i += 1) {
-    const ch = text[i];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === '\\') escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') inString = true;
-    else if (ch === '{') depth += 1;
-    else if (ch === '}') {
-      depth -= 1;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-}
-
-/**
- * Pull the lesson object out of a model reply. The reply may be bare JSON, a
- * fenced block, or prose that happens to contain braces (a LaTeX example
- * before the JSON used to break the old `/\{.*\}/` match).
- */
-function extractJson(text: string): unknown {
-  const cleaned = text.replace(/```(?:json)?/gi, '').trim();
-  const direct = tryParse(cleaned);
-  if (direct !== undefined) return direct;
-
-  for (let start = cleaned.indexOf('{'); start !== -1; start = cleaned.indexOf('{', start + 1)) {
-    const end = matchingBrace(cleaned, start);
-    if (end === -1) continue;
-    const parsed = tryParse(cleaned.slice(start, end + 1));
-    if (parsed !== undefined) return parsed;
-  }
-  return null;
-}
 
 export async function POST(req: NextRequest) {
   let body: LessonRequest;
@@ -262,19 +205,23 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         { serverManaged: params.serverManaged },
       );
 
-    let result = await runModel(6_000);
-    let parsed = parseLesson(extractJson(result.text ?? ''));
+    // The model occasionally truncates its JSON or emits a malformed draw
+    // object. Both are transient, so retry while there is time left in the
+    // client's window; a canned lesson would answer a different question.
+    const startedAt = Date.now();
+    const budgets = [6_000, 16_000, 16_000];
+    let result = await runModel(budgets[0]);
+    let parsed = parseLessonReply(result.text ?? '');
 
-    // A truncated reply can be empty OR partial JSON: either way the whole
-    // lesson is unusable, so retry once with a budget large enough for the
-    // hidden reasoning plus the JSON body.
-    if (!parsed && result.finishReason === 'length') {
+    for (let attempt = 1; !parsed && attempt < budgets.length; attempt += 1) {
+      if (Date.now() - startedAt > 95_000) break;
       log.warn(
-        `Model truncated its lesson (finish=length, chars=${(result.text ?? '').length}), ` +
-          `retrying with a larger budget [q="${questionSnippet}..."]`,
+        `Lesson reply unusable (finish=${result.finishReason ?? 'unknown'}, ` +
+          `chars=${(result.text ?? '').length}), retrying ` +
+          `[attempt ${attempt + 1}, q="${questionSnippet}..."]`,
       );
-      result = await runModel(16_000);
-      parsed = parseLesson(extractJson(result.text ?? ''));
+      result = await runModel(budgets[attempt]);
+      parsed = parseLessonReply(result.text ?? '');
     }
 
     if (parsed) {

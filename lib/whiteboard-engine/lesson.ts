@@ -156,3 +156,84 @@ export const FALLBACK_LESSON: Lesson = parsedFallback?.lesson ?? {
   title: 'درس السبورة',
   beats: [],
 };
+/* ── reading a model reply ───────────────────────────────────────────
+   The teaching model usually answers with bare JSON, but sometimes wraps it
+   in prose or a fence, leaves a trailing comma, or glues the next key onto an
+   op value. All of that is recoverable here; anything that still does not
+   validate is reported as a failure rather than drawn as a canned lesson. */
+
+/**
+ * `"op":"ELLIPSEx":520` instead of `"op":"ELLIPSE","x":520` makes the whole
+ * reply invalid JSON. An op value is always an ALL-CAPS name, so a lowercase
+ * key glued to it can be re-split safely; an unknown op is dropped downstream.
+ */
+const GLUED_OP = /("op"\s*:\s*")([A-Z]+)([a-z][A-Za-z0-9_]*)("\s*:)/g;
+
+function repairJson(candidate: string): string {
+  return candidate
+    .replace(/,\s*([}\]])/g, '$1') // trailing comma before } or ]
+    .replace(GLUED_OP, '$1$2","$3$4');
+}
+
+function tryParseOnce(candidate: string): unknown {
+  try {
+    return JSON.parse(candidate) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function tryParse(candidate: string): unknown {
+  const direct = tryParseOnce(candidate);
+  if (direct !== undefined) return direct;
+  const repaired = repairJson(candidate);
+  if (repaired === candidate) return undefined;
+  return tryParseOnce(repaired);
+}
+
+/** Index of the brace that closes the object opened at `start`. */
+function matchingBrace(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Pull the lesson object out of a model reply. Brace matching ignores braces
+ * inside strings, so a LaTeX example before the JSON no longer breaks it the
+ * way a greedy `/{[\s\S]*}/` match did.
+ */
+export function extractLessonJson(text: string): unknown {
+  const cleaned = text.replace(/```(?:json)?/gi, '').trim();
+  const direct = tryParse(cleaned);
+  if (direct !== undefined) return direct;
+
+  for (let start = cleaned.indexOf('{'); start !== -1; start = cleaned.indexOf('{', start + 1)) {
+    const end = matchingBrace(cleaned, start);
+    if (end === -1) continue;
+    const parsed = tryParse(cleaned.slice(start, end + 1));
+    if (parsed !== undefined) return parsed;
+  }
+  return null;
+}
+
+/** Read a raw model reply all the way to a validated lesson. */
+export function parseLessonReply(text: string): ParsedLesson | null {
+  return parseLesson(extractLessonJson(text));
+}
