@@ -216,13 +216,16 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         { serverManaged: params.serverManaged },
       );
 
-    let result = await runModel(4_000);
+    let result = await runModel(6_000);
     let parsed = parseLesson(extractJson(result.text ?? ''));
 
-    if (!parsed && result.finishReason === 'length' && !(result.text ?? '').trim()) {
+    // A truncated reply can be empty OR partial JSON: either way the whole
+    // lesson is unusable, so retry once with a budget large enough for the
+    // hidden reasoning plus the JSON body.
+    if (!parsed && result.finishReason === 'length') {
       log.warn(
-        `Model truncated before writing (finish=length, chars=0), retrying with a larger budget ` +
-          `[q="${questionSnippet}..."]`,
+        `Model truncated its lesson (finish=length, chars=${(result.text ?? '').length}), ` +
+          `retrying with a larger budget [q="${questionSnippet}..."]`,
       );
       result = await runModel(16_000);
       parsed = parseLesson(extractJson(result.text ?? ''));
