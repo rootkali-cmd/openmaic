@@ -6,17 +6,32 @@
 
 .wb-sheet-stage {
   background-color: #e9e4f7;
+  /* Endless paper: the dot grid is pinned to the board's pan offset (set
+     inline from the camera) so it travels with the sheet in every direction. */
+  background-image: radial-gradient(circle, rgba(91, 63, 199, 0.2) 1.3px, transparent 1.5px);
+  background-repeat: repeat;
 }
 
-/* The dot grid lives on the sheet, so it pans with the board (the student
-   moves the board, not the text). The sheet is sized to cover the section,
-   so no unused strip is ever exposed. */
 .wb-sheet {
   background-color: transparent;
-  background-image: radial-gradient(circle, rgba(91, 63, 199, 0.2) 1.3px, transparent 1.5px);
-  background-size: 26px 26px;
+  background-image: none;
   border: 0;
   border-radius: 0;
+}
+
+/* Ink wipe: a freshly revealed line surfaces from the side the pen starts on,
+   over exactly the same duration as the pen sweep. */
+@keyframes wb-ink-write {
+  from {
+    clip-path: inset(-14% 0 -14% 100%);
+  }
+  to {
+    clip-path: inset(-14% 0 -14% 0%);
+  }
+}
+
+.wb-ink-text {
+  animation: wb-ink-write var(--wb-write-ms, 760ms) cubic-bezier(0.33, 0, 0.35, 1) both;
 }
 
 /* Handwritten educational type: Caveat for latin/numerals, Aref Ruqaa for

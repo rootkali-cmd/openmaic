@@ -25,7 +25,7 @@ import { LessonStatus } from '@/components/whiteboard-engine/lesson-status';
 import { TeacherHud } from '@/components/whiteboard-engine/teacher-hud';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { resolveBBox, useBoardStore } from '@/lib/whiteboard-engine/board-store';
-import { FALLBACK_LESSON, type Lesson } from '@/lib/whiteboard-engine/lesson';
+import type { Lesson } from '@/lib/whiteboard-engine/lesson';
 import { requestLesson } from '@/lib/whiteboard-engine/lesson-client';
 import { usePlayerStore } from '@/lib/whiteboard-engine/player';
 
@@ -69,7 +69,8 @@ function WhiteboardSurface() {
     setBusy(true);
 
     const player = usePlayerStore.getState();
-    const wasActive = player.status === 'playing' || player.status === 'paused';
+    const previousStatus = player.status;
+    const wasActive = previousStatus === 'playing' || previousStatus === 'paused';
 
     // Interruption contract: an active lesson PAUSES (board preserved); an
     // idle board goes through the loading state instead.
@@ -96,14 +97,14 @@ function WhiteboardSurface() {
         throw new Error('malformed lesson payload');
       }
       deliver({ title: data.title?.trim() || question, beats: data.beats });
-      if (data.fallback) {
-        toast.info('المدرس رجّع درس جاهز — جرّب سؤالك تاني بعد شوية');
-      }
     } catch (error) {
-      // Never dead-end: serve the bundled lesson so the board keeps teaching.
+      // No canned substitute: an unrelated lesson is worse than an honest
+      // failure. Put the board back the way the student left it.
       console.error('whiteboard lesson request failed', error);
-      deliver(FALLBACK_LESSON);
-      toast.error('تعذّر الوصول للمدرس الآن — عرضنا درس جاهز لحد ما يرجع');
+      const current = usePlayerStore.getState();
+      if (wasActive) current.resume();
+      else usePlayerStore.setState({ status: previousStatus === 'done' ? 'done' : 'idle' });
+      toast.error('معلش، مقدرتش أجهّز الشرح دلوقتي — جرّب تسأل تاني.');
     } finally {
       busyRef.current = false;
       setBusy(false);

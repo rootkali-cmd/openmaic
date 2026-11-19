@@ -263,6 +263,7 @@ function renderCommand(
               fontSize={cmd.size}
               fontWeight={cmd.weight}
               textAnchor={cmd.anchor}
+              className="wb-ink-text"
               style={{ direction: 'ltr', fontFamily: boardFont(cmd.size) }}
             >
               {cmd.text}

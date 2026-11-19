@@ -20,7 +20,7 @@ import {
 import { createLessonJob, finishLessonJob, readLessonJob } from '@/lib/server/lesson-jobs';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { BOARD_HEIGHT, BOARD_WIDTH } from '@/lib/whiteboard-engine/dsl';
-import { FALLBACK_LESSON, parseLesson } from '@/lib/whiteboard-engine/lesson';
+import { parseLesson } from '@/lib/whiteboard-engine/lesson';
 
 const log = createLogger('Whiteboard Lesson');
 
@@ -145,9 +145,6 @@ export async function GET(req: NextRequest) {
   const jobId = req.nextUrl.searchParams.get('job');
   if (!jobId) return apiError('INVALID_REQUEST', 400, 'job is required');
   const state = readLessonJob(jobId);
-  if (state.status === 'failed') {
-    return apiSuccess({ fallback: true, ...state }, 200);
-  }
   return apiSuccess({ ...state }, 200);
 }
 
@@ -191,24 +188,42 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
       EXAMPLE,
     );
 
-    const result = await callLLM(
-      {
-        model: params.model,
-        system,
-        prompt: `${historyContext}سؤال الطالب: ${question}\n\nأعد الدرس JSON الآن.`,
-        maxOutputTokens: 4000,
-        abortSignal: AbortSignal.timeout(110_000),
-      },
-      'whiteboard-lesson',
-      undefined,
-      // This stage needs a short, well-formed JSON lesson, not a reasoning
-      // essay: at the model's default effort the whole output budget goes to
-      // hidden reasoning and the visible reply comes back empty.
-      { effort: 'low' },
-      { serverManaged: params.serverManaged },
-    );
+    const prompt = `${historyContext}سؤال الطالب: ${question}\n\nأعد الدرس JSON الآن.`;
 
-    const parsed = parseLesson(extractJson(result.text ?? ''));
+    // The teaching model occasionally spends its entire output budget on
+    // hidden reasoning and returns an empty body (finishReason "length").
+    // One retry with a much larger budget fixes that; anything else that is
+    // unparseable is reported honestly instead of drawing a canned lesson
+    // that has nothing to do with the student's question.
+    const runModel = (maxOutputTokens: number) =>
+      callLLM(
+        {
+          model: params.model,
+          system,
+          prompt,
+          maxOutputTokens,
+          abortSignal: AbortSignal.timeout(110_000),
+        },
+        'whiteboard-lesson',
+        undefined,
+        // This stage needs a short, well-formed JSON lesson, not a reasoning
+        // essay: at the model's default effort the whole output budget goes to
+        // hidden reasoning and the visible reply comes back empty.
+        { effort: 'low' },
+        { serverManaged: params.serverManaged },
+      );
+
+    let result = await runModel(4_000);
+    let parsed = parseLesson(extractJson(result.text ?? ''));
+
+    if (!parsed && result.finishReason === 'length' && !(result.text ?? '').trim()) {
+      log.warn(
+        `Model truncated before writing (finish=length, chars=0), retrying with a larger budget ` +
+          `[q="${questionSnippet}..."]`,
+      );
+      result = await runModel(16_000);
+      parsed = parseLesson(extractJson(result.text ?? ''));
+    }
 
     if (parsed) {
       log.info(
@@ -225,31 +240,23 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
       return;
     }
 
-    // The board must never dead-end on a malformed model reply: fall back to
-    // a hand-written lesson instead of showing an error.
     log.warn(
       `Model reply unparseable (finish=${result.finishReason ?? 'unknown'}, ` +
-        `chars=${(result.text ?? '').length}), serving fallback lesson [q="${questionSnippet}..."]`,
+        `chars=${(result.text ?? '').length}) [q="${questionSnippet}..."]`,
     );
     finishLessonJob(jobId, {
-      status: 'done',
-      success: true,
-      title: FALLBACK_LESSON.title,
-      beats: FALLBACK_LESSON.beats,
-      dropped: 0,
-      fallback: true,
+      status: 'failed',
+      code: 'LESSON_UNPARSEABLE',
+      message: 'The teaching model returned an unusable lesson.',
     });
   } catch (error) {
-    // Network/provider failure: same contract — the student still gets a
-    // lesson, clearly flagged as fallback.
+    // Network/provider failure: report it. Drawing an unrelated canned lesson
+    // here is worse than saying "I could not prepare that right now".
     log.error(`Whiteboard lesson failed [q="${questionSnippet ?? 'unknown'}..."]`, error);
     finishLessonJob(jobId, {
-      status: 'done',
-      success: true,
-      title: FALLBACK_LESSON.title,
-      beats: FALLBACK_LESSON.beats,
-      dropped: 0,
-      fallback: true,
+      status: 'failed',
+      code: 'LESSON_UNAVAILABLE',
+      message: 'The teaching model could not be reached.',
     });
   }
 }

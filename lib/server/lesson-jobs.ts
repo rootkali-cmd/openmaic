@@ -6,7 +6,8 @@
  * lesson is ready. The model call keeps running on the server after the first
  * response has been flushed, which is exactly what a long-running Node dyno is
  * good at. Jobs are pruned after a few minutes; a missing job simply reads as
- * "failed" and the caller falls back to the bundled lesson.
+ * "failed" and the caller reports it honestly instead of drawing a canned
+ * lesson that does not answer the student's question.
  */
 import { randomUUID } from 'crypto';
 

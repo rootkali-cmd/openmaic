@@ -42,14 +42,25 @@ function coverView(cw: number, ch: number, worldH: number): View {
   return { scale, tx: 0, ty: 0 };
 }
 
-/** Keep the sheet covering the viewport while the student pans. */
+/**
+ * The board is a sheet on an endless paper surface: the student may pull it
+ * up, down, left and right well past its edge (the dot grid keeps going), so
+ * they can always put any part of the lesson where they want it.
+ */
+function panPadding(cw: number, ch: number): { x: number; y: number } {
+  return { x: Math.max(280, cw * 0.45), y: Math.max(280, ch * 0.45) };
+}
+
 function clampView(view: View, cw: number, ch: number, worldH: number): View {
-  const minTx = Math.min(0, cw - BOARD_WIDTH * view.scale);
-  const minTy = Math.min(0, ch - worldH * view.scale);
+  const pad = panPadding(cw, ch);
+  const minTx = cw - BOARD_WIDTH * view.scale - pad.x;
+  const maxTx = pad.x;
+  const minTy = ch - worldH * view.scale - pad.y;
+  const maxTy = pad.y;
   return {
     scale: view.scale,
-    tx: clamp(view.tx, minTx, 0),
-    ty: clamp(view.ty, minTy, 0),
+    tx: clamp(view.tx, Math.min(minTx, maxTx), Math.max(minTx, maxTx)),
+    ty: clamp(view.ty, Math.min(minTy, maxTy), Math.max(minTy, maxTy)),
   };
 }
 
@@ -231,11 +242,18 @@ export function BoardView() {
   const penY = penBox ? penBox.y + penBox.h : 0;
   const penRightToLeft = penElement?.cmd.op === 'TEXT';
   const penSweep = penBox ? Math.min(Math.max(penBox.w, 24), 420) : 0;
+  /* One clock for both effects: the text wipes in over the same time the pen
+     nib travels, so the ink and the hand stay together. */
+  const writeMs = penBox ? Math.round(Math.min(1800, Math.max(520, penBox.w * 3.4))) : 760;
 
   return (
     <div
       ref={containerRef}
       className="wb-sheet-stage absolute inset-0 cursor-grab touch-none overflow-hidden select-none active:cursor-grabbing"
+      style={{
+        backgroundSize: `${26 * view.scale}px ${26 * view.scale}px`,
+        backgroundPosition: `${view.tx}px ${view.ty}px`,
+      }}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -244,12 +262,15 @@ export function BoardView() {
     >
       <div
         className="wb-sheet absolute top-0 left-0 origin-top-left"
-        style={{
-          width: BOARD_WIDTH,
-          height: worldH,
-          transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
-          transition: smooth ? 'transform 620ms cubic-bezier(0.22, 0.61, 0.36, 1)' : 'none',
-        }}
+        style={
+          {
+            width: BOARD_WIDTH,
+            height: worldH,
+            transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
+            transition: smooth ? 'transform 620ms cubic-bezier(0.22, 0.61, 0.36, 1)' : 'none',
+            '--wb-write-ms': `${writeMs}ms`,
+          } as React.CSSProperties
+        }
       >
         <WhiteboardRenderer elements={elements} worldHeight={worldH} />
 
@@ -263,6 +284,7 @@ export function BoardView() {
                 {
                   '--pen-from': penRightToLeft ? '0px' : `${-penSweep}px`,
                   '--pen-to': penRightToLeft ? `${-penSweep}px` : '0px',
+                  animationDuration: `${writeMs}ms`,
                 } as React.CSSProperties
               }
             >
