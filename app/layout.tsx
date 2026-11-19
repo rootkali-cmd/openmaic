@@ -53,9 +53,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'OpenMAIC',
+  title: {
+    default: 'Darsak AI · دارس',
+    template: '%s · Darsak AI',
+  },
   description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+    'دارس: مدرّس ذكي يشرح على السبورة خطوة بخطوة، ويجاوب أسئلتك بالعربي في نفس الصفحة.',
 };
 
 export default async function RootLayout({
