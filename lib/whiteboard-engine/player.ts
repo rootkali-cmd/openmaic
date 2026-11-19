@@ -134,6 +134,18 @@ function ensureLoop() {
   rafId = requestAnimationFrame(loop);
 }
 
+/**
+ * Element ids are derived from the beat id (`b0` + slot), and every parsed
+ * lesson reuses those ids. Stamping the lesson keeps a follow-up from
+ * overwriting the lesson already on the board.
+ */
+let lessonSeq = 0;
+function stampBeats(lesson: Lesson): LessonBeat[] {
+  lessonSeq += 1;
+  const stamp = `L${lessonSeq.toString(36)}-`;
+  return lesson.beats.map((beat) => ({ ...beat, id: `${stamp}${beat.id}` }));
+}
+
 /** Structural commands mutate the list; everything else becomes an element. */
 function isStructural(op: string): boolean {
   return op === 'ERASE' || op === 'GROUP' || op === 'MOVE';
@@ -174,7 +186,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (opts?.clear) board.clear();
     set({
       status: 'playing',
-      queue: lesson.beats,
+      queue: stampBeats(lesson),
       index: 0,
       title: lesson.title,
       error: null,
@@ -191,7 +203,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Nothing playing: the reply is just a lesson on the existing board.
       set({
         status: 'playing',
-        queue: lesson.beats,
+        queue: stampBeats(lesson),
         index: 0,
         title: lesson.title,
         error: null,
@@ -205,10 +217,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // jump playback to it. The interrupted beat's cursor is parked on the
     // resume stack; when the reply ends, playback pops back into the original
     // beat exactly where it stopped — no sentence and no drawing is lost.
+    const reply = stampBeats(lesson);
     const insertAt = state.index + 1;
     resumeStack.push({
       beatIndex: state.index,
-      replyEndIndex: insertAt + lesson.beats.length,
+      replyEndIndex: insertAt + reply.length,
       cursor: {
         elapsedMs: cursor.elapsedMs,
         speechEnded: cursor.speechEnded,
@@ -218,7 +231,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
     const queue = [
       ...state.queue.slice(0, insertAt),
-      ...lesson.beats,
+      ...reply,
       ...state.queue.slice(insertAt),
     ];
     cancelSpeech();

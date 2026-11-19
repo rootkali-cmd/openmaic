@@ -80,7 +80,9 @@ function WhiteboardSurface() {
     const deliver = (lesson: Lesson) => {
       const current = usePlayerStore.getState();
       if (wasActive) current.answer(lesson);
-      else current.start(lesson, { clear: false });
+      // A new question starts a clean board; an interrupted lesson is
+      // spliced in by answer() and keeps what is already drawn.
+      else current.start(lesson, { clear: true });
       historyRef.current = [
         ...historyRef.current,
         { question, title: lesson.title },
