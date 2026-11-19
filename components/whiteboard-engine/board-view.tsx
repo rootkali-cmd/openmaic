@@ -172,6 +172,20 @@ export function BoardView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-follow on a new reveal only
   }, [revealSeq, follow, status]);
 
+  /* A finished lesson glides back to its heading: follow has walked the
+     camera down to the last line, and the student should be able to read the
+     board from the top without hunting for it. */
+  useEffect(() => {
+    if (status !== 'done' || !follow) return;
+    const { w: cw, h: ch } = sizeRef.current;
+    if (!cw || !ch) return;
+    const current = viewRef.current;
+    const next = clampView({ scale: current.scale, tx: 0, ty: 0 }, cw, ch, worldRef.current);
+    if (next.tx === current.tx && next.ty === current.ty) return;
+    setSmooth(true);
+    setView(next);
+  }, [status, follow]);
+
   const stopFollow = useCallback(() => {
     if (usePlayerStore.getState().follow) usePlayerStore.getState().setFollow(false);
   }, []);
