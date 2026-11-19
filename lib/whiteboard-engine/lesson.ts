@@ -46,7 +46,11 @@ export interface ParsedLesson {
 function isOversizedWash(cmd: DrawCommand): boolean {
   if (cmd.op !== 'HIGHLIGHT' || !cmd.region) return false;
   if (cmd.mode && cmd.mode !== 'wash') return false;
-  return cmd.region.w > 720 || cmd.region.h > 280;
+  // Emphasis is a word or a line, never a backdrop for a whole diagram. The
+  // model reliably ignores the size guidance, so bound the region here: a
+  // 520x260 wash still covers a fifth of the board and buries the drawing.
+  const { w, h } = cmd.region;
+  return w > 620 || h > 140 || w * h > 80_000;
 }
 
 /**

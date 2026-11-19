@@ -2,14 +2,14 @@
 
 /**
  * Floating question bar — the single place the student talks to the teacher:
- * type, attach (coming soon), dictate, toggle the voice reply, send. While a
- * lesson runs the send button becomes pause/resume so the controls the spec
- * asks for are always one tap away.
+ * type, attach (coming soon), dictate, toggle the voice reply, send. Send
+ * stays available while a lesson plays: asking mid-lesson interrupts the
+ * teacher, answers, then resumes — pause/resume lives in the HUD.
  *
  * The mic uses the browser's Speech Recognition with the platform ASR hook;
  * hosted Arabic ASR can slot in behind the same interface later.
  */
-import { ImagePlus, Mic, MicOff, Pause, Play, Send, Volume2, VolumeX } from 'lucide-react';
+import { ImagePlus, Mic, MicOff, Send, Volume2, VolumeX } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useBrowserASR } from '@/lib/hooks/use-browser-asr';
@@ -24,10 +24,8 @@ interface InputBarProps {
 export function InputBar({ onAsk, busy }: InputBarProps) {
   const { t } = useI18n();
   const [value, setValue] = useState('');
-  const status = usePlayerStore((s) => s.status);
   const muted = usePlayerStore((s) => s.muted);
   const setMuted = usePlayerStore((s) => s.setMuted);
-  const toggle = usePlayerStore((s) => s.toggle);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { isSupported: asrSupported, isListening, interimTranscript, startListening, stopListening } =
@@ -55,9 +53,6 @@ export function InputBar({ onAsk, busy }: InputBarProps) {
     onAsk(question);
     setValue('');
   }, [value, busy, onAsk]);
-
-  const playing = status === 'playing';
-  const paused = status === 'paused';
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-4">
@@ -123,26 +118,15 @@ export function InputBar({ onAsk, busy }: InputBarProps) {
             </button>
           ) : null}
 
-          {playing || paused ? (
-            <button
-              type="button"
-              onClick={toggle}
-              aria-label={paused ? t('wb.resume') : t('wb.pause')}
-              className="grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.08] text-white transition hover:bg-white/[0.14]"
-            >
-              {paused ? <Play className="size-4.5" /> : <Pause className="size-4.5" />}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!value.trim() || busy}
-              aria-label={t('wb.send')}
-              className="grid size-9 shrink-0 place-items-center rounded-full bg-[#9178E6] text-white transition hover:bg-[#7C63D8] disabled:bg-white/[0.08] disabled:text-white/30"
-            >
-              <Send className="size-4.5 -scale-x-100" aria-hidden />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!value.trim() || busy}
+            aria-label={t('wb.send')}
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-[#9178E6] text-white transition hover:bg-[#7C63D8] disabled:bg-white/[0.08] disabled:text-white/30"
+          >
+            <Send className="size-4.5 -scale-x-100" aria-hidden />
+          </button>
         </div>
 
         <p className="mt-2 text-center text-[10.5px] text-white/35">
