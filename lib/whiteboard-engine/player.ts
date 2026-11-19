@@ -15,12 +15,24 @@
  *               the interrupted sentence, with every previous drawing intact
  */
 import { create } from 'zustand';
-import { useBoardStore, type BoardElement } from './board-store';
+import { resolveBBox, useBoardStore, type BoardElement } from './board-store';
 import type { Lesson, LessonBeat } from './lesson';
 import { cancelSpeech, pauseSpeech, resumeSpeech, speak } from './speech';
 
-/** Gap between two drawing reveals inside one beat. */
+/** Fallback gap between two drawing reveals inside one beat. */
 export const STAGGER_MS = 750;
+
+/**
+ * How long the teacher's hand takes to ink an element of this width.
+ *
+ * The pen sweep, the ink wipe (CSS `--wb-write-ms`) and the delay before the
+ * next reveal all read this one number, so nothing can get ahead of the hand:
+ * a line finishes writing, then the next one starts.
+ */
+export function inkDurationMs(width: number): number {
+  const safe = Number.isFinite(width) ? Math.abs(width) : 0;
+  return Math.round(Math.min(1500, Math.max(520, safe * 2.6)));
+}
 
 export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'done';
 
@@ -60,6 +72,8 @@ interface PlaybackCursor {
   elapsedMs: number;
   speechEnded: boolean;
   slotsDone: boolean[];
+  /** Earliest time the next undrawn slot may appear (keeps the pen honest). */
+  nextSlotAt: number;
   currentHandle: { cancel: () => void } | null;
 }
 
@@ -67,6 +81,7 @@ const cursor: PlaybackCursor = {
   elapsedMs: 0,
   speechEnded: false,
   slotsDone: [],
+  nextSlotAt: 0,
   currentHandle: null,
 };
 
@@ -198,6 +213,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         elapsedMs: cursor.elapsedMs,
         speechEnded: cursor.speechEnded,
         slotsDone: [...cursor.slotsDone],
+        nextSlotAt: 0,
       },
     });
     const queue = [
@@ -291,6 +307,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       cursor.elapsedMs = pending.cursor.elapsedMs;
       cursor.speechEnded = pending.cursor.speechEnded;
       cursor.slotsDone = pending.cursor.slotsDone;
+      cursor.nextSlotAt = 0;
       cursor.currentHandle = null;
       set({ index: restoredBeatIndex });
       const beat = get().queue[restoredBeatIndex];
@@ -317,6 +334,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     cursor.elapsedMs = 0;
     cursor.speechEnded = beat.speech.trim().length === 0;
     cursor.slotsDone = beat.draws.map(() => false);
+    cursor.nextSlotAt = 0;
 
     // One undo checkpoint per beat: undoing takes the whole beat back.
     if (beat.draws.length > 0) useBoardStore.getState().pushHistory();
@@ -352,19 +370,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     beat.draws.forEach((raw, slot) => {
       if (cursor.slotsDone[slot]) return;
-      if (cursor.elapsedMs < slot * STAGGER_MS) return;
+      // One element at a time: the previous line must finish inking before
+      // the pen moves on, otherwise the hand and the ink drift apart.
+      if (cursor.elapsedMs < cursor.nextSlotAt) return;
       cursor.slotsDone[slot] = true;
 
       const cmd = ensureId(raw, beat.id, slot);
       board.apply(cmd, { silent: true });
 
-      if (!isStructural(cmd.op)) {
-        const elementId = (cmd as { id?: string }).id;
-        if (elementId) {
-          board.reveal(elementId);
-          set({ revealSeq: get().revealSeq + 1, lastRevealedId: elementId });
-        }
+      if (isStructural(cmd.op)) {
+        cursor.nextSlotAt = cursor.elapsedMs + STAGGER_MS / 3;
+        return;
       }
+
+      const elementId = (cmd as { id?: string }).id;
+      if (!elementId) {
+        cursor.nextSlotAt = cursor.elapsedMs + STAGGER_MS;
+        return;
+      }
+
+      board.reveal(elementId);
+      set({ revealSeq: get().revealSeq + 1, lastRevealedId: elementId });
+      const box = resolveBBox(useBoardStore.getState().elements, elementId);
+      cursor.nextSlotAt = cursor.elapsedMs + inkDurationMs(box ? box.w : STAGGER_MS);
     });
 
     const allSlotsDone = cursor.slotsDone.every(Boolean);

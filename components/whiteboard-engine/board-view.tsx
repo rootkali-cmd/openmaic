@@ -24,7 +24,7 @@ import { WhiteboardRenderer } from '@/components/whiteboard-engine/renderer';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { resolveBBox, useBoardStore } from '@/lib/whiteboard-engine/board-store';
 import { BOARD_HEIGHT, BOARD_WIDTH } from '@/lib/whiteboard-engine/dsl';
-import { usePlayerStore } from '@/lib/whiteboard-engine/player';
+import { inkDurationMs, usePlayerStore } from '@/lib/whiteboard-engine/player';
 
 interface View {
   scale: number;
@@ -244,7 +244,7 @@ export function BoardView() {
   const penSweep = penBox ? Math.min(Math.max(penBox.w, 24), 420) : 0;
   /* One clock for both effects: the text wipes in over the same time the pen
      nib travels, so the ink and the hand stay together. */
-  const writeMs = penBox ? Math.round(Math.min(1800, Math.max(520, penBox.w * 3.4))) : 760;
+  const writeMs = penBox ? inkDurationMs(penBox.w) : 760;
 
   return (
     <div
