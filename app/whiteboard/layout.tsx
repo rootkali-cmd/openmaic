@@ -10,7 +10,7 @@ import './whiteboard.css';
  * fonts it does not use.
  */
 export const metadata: Metadata = {
-  title: 'السبورة الذكية · Darsak AI',
+  title: 'السبورة الذكية',
   description: 'مدرس ذكي بيشرح ويرسم على السبورة في نفس اللحظة — بالعربية.',
 };
 
