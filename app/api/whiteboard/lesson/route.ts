@@ -184,9 +184,9 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
 
     // The teaching model occasionally spends its entire output budget on
     // hidden reasoning and returns an empty body (finishReason "length").
-    // One retry with a much larger budget fixes that; anything else that is
-    // unparseable is reported honestly instead of drawing a canned lesson
-    // that has nothing to do with the student's question.
+    // Each attempt is bounded so two of them still fit inside the client's
+    // wait; anything that stays unusable is reported honestly instead of
+    // drawing a canned lesson that has nothing to do with the question.
     const runModel = (maxOutputTokens: number) =>
       callLLM(
         {
@@ -194,7 +194,7 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
           system,
           prompt,
           maxOutputTokens,
-          abortSignal: AbortSignal.timeout(110_000),
+          abortSignal: AbortSignal.timeout(90_000),
         },
         'whiteboard-lesson',
         undefined,
