@@ -119,6 +119,17 @@ export function BoardView() {
     return () => observer.disconnect();
   }, []);
 
+  /* Chrome can leave the stage's dotted paper rasterized at the height it
+     had before the lesson grew, which exposes a dark strip under the board.
+     Re-stamp the background whenever the world height changes. */
+  useEffect(() => {
+    const stage = containerRef.current;
+    if (!stage) return;
+    stage.style.backgroundImage = 'none';
+    void stage.offsetHeight;
+    stage.style.backgroundImage = '';
+  }, [worldH]);
+
   /* ── follow the teacher's chalk (only when follow is on) ──────────── */
   useEffect(() => {
     if (!follow || !lastRevealedId || status === 'idle') return;
@@ -328,7 +339,7 @@ export function BoardView() {
                 onClick={() =>
                   window.dispatchEvent(new CustomEvent('wb-example', { detail: t(key) }))
                 }
-                className="rounded-full border border-[#5B3FC7]/20 bg-white/60 px-4 py-2 text-[12px] font-medium text-[#3D315E]/85 backdrop-blur transition hover:border-[#5B3FC7]/45 hover:bg-white"
+                className="rounded-full border border-[#5B3FC7]/20 bg-white/85 px-4 py-2 text-[12px] font-medium text-[#3D315E]/85 transition hover:border-[#5B3FC7]/45 hover:bg-white"
               >
                 {t(key)}
               </button>
@@ -338,7 +349,7 @@ export function BoardView() {
       ) : null}
 
       {/* board controls — quiet, frosted, out of the content's way */}
-      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-0.5 rounded-full border border-[#3D315E]/10 bg-white/75 p-1 shadow-[0_12px_30px_-18px_rgba(61,49,94,0.6)] backdrop-blur-md">
+      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-0.5 rounded-full border border-[#3D315E]/10 bg-white/90 p-1 shadow-[0_12px_30px_-18px_rgba(61,49,94,0.6)]">
         <BoardButton
           label={t('wb.undo')}
           disabled={!canUndo}

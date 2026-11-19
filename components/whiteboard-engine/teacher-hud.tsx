@@ -92,7 +92,7 @@ export function TeacherHud() {
   const canControl = status === 'playing' || status === 'paused';
 
   return (
-    <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 rounded-full border border-white/10 bg-[#12141F]/90 p-1.5 shadow-[0_18px_44px_-24px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+    <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 rounded-full border border-white/10 bg-[#12141F]/95 p-1.5 shadow-[0_18px_44px_-24px_rgba(0,0,0,0.9)]">
       <HudButton
         label={muted ? t('wb.unmute') : t('wb.mute')}
         active={!muted}

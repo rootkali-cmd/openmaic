@@ -63,7 +63,7 @@ export function InputBar({ onAsk, busy }: InputBarProps) {
     <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-4">
       <div className="pointer-events-auto w-full max-w-[720px]">
         <div
-          className={`flex items-end gap-1.5 rounded-[26px] border bg-[#12141F]/95 p-2 shadow-[0_26px_60px_-28px_rgba(0,0,0,0.95)] backdrop-blur-xl transition ${
+          className={`flex items-end gap-1.5 rounded-[26px] border bg-[#12141F]/97 p-2 shadow-[0_26px_60px_-28px_rgba(0,0,0,0.95)] transition ${
             isListening ? 'border-[#FB7E5B]/70 ring-4 ring-[#FB7E5B]/15' : 'border-white/10'
           }`}
         >
