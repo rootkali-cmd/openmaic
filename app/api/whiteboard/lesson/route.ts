@@ -187,14 +187,14 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
     // Each attempt is bounded so two of them still fit inside the client's
     // wait; anything that stays unusable is reported honestly instead of
     // drawing a canned lesson that has nothing to do with the question.
-    const runModel = (maxOutputTokens: number) =>
+    const runModel = (maxOutputTokens: number, timeoutMs: number) =>
       callLLM(
         {
           model: params.model,
           system,
           prompt,
           maxOutputTokens,
-          abortSignal: AbortSignal.timeout(90_000),
+          abortSignal: AbortSignal.timeout(timeoutMs),
         },
         'whiteboard-lesson',
         undefined,
@@ -205,24 +205,40 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         { serverManaged: params.serverManaged },
       );
 
-    // The model occasionally truncates its JSON or emits a malformed draw
-    // object. Both are transient, so retry while there is time left in the
-    // client's window; a canned lesson would answer a different question.
-    const startedAt = Date.now();
+    // The model occasionally truncates its JSON, emits a malformed draw
+    // object, or burns its whole window on hidden reasoning until the attempt
+    // times out. All three are transient, so each attempt is bounded and the
+    // next one starts while the student's window still has room; a canned
+    // lesson would answer a different question.
+    const ATTEMPT_DEADLINE_MS = 150_000;
     const budgets = [6_000, 16_000, 16_000];
-    let result = await runModel(budgets[0]);
-    let parsed = parseLessonReply(result.text ?? '');
+    const startedAt = Date.now();
+    let result: Awaited<ReturnType<typeof runModel>> | null = null;
+    let parsed: ReturnType<typeof parseLessonReply> = null;
+    let lastError: unknown = null;
 
-    for (let attempt = 1; !parsed && attempt < budgets.length; attempt += 1) {
-      if (Date.now() - startedAt > 95_000) break;
-      log.warn(
-        `Lesson reply unusable (finish=${result.finishReason ?? 'unknown'}, ` +
-          `chars=${(result.text ?? '').length}), retrying ` +
-          `[attempt ${attempt + 1}, q="${questionSnippet}..."]`,
-      );
-      result = await runModel(budgets[attempt]);
-      parsed = parseLessonReply(result.text ?? '');
+    for (let attempt = 0; attempt < budgets.length; attempt += 1) {
+      const remaining = ATTEMPT_DEADLINE_MS - (Date.now() - startedAt);
+      if (remaining < 25_000) break;
+      try {
+        result = await runModel(budgets[attempt], Math.min(100_000, remaining));
+        parsed = parseLessonReply(result.text ?? '');
+        if (parsed) break;
+        log.warn(
+          `Lesson reply unusable (finish=${result.finishReason ?? 'unknown'}, ` +
+            `chars=${(result.text ?? '').length}), retrying ` +
+            `[attempt ${attempt + 1}, q="${questionSnippet}..."]`,
+        );
+      } catch (error) {
+        lastError = error;
+        log.warn(
+          `Lesson attempt ${attempt + 1} failed (${error instanceof Error ? error.message : 'unknown'}) ` +
+            `[q="${questionSnippet}..."]`,
+        );
+      }
     }
+
+    if (!parsed && result === null && lastError) throw lastError;
 
     if (parsed) {
       log.info(
@@ -240,9 +256,9 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
     }
 
     log.warn(
-      `Model reply unparseable (finish=${result.finishReason ?? 'unknown'}, ` +
-        `chars=${(result.text ?? '').length}, head=${JSON.stringify(
-          (result.text ?? '').slice(0, 160),
+      `Model reply unparseable (finish=${result?.finishReason ?? 'unknown'}, ` +
+        `chars=${(result?.text ?? '').length}, head=${JSON.stringify(
+          (result?.text ?? '').slice(0, 160),
         )}) [q="${questionSnippet}..."]`,
     );
     finishLessonJob(jobId, {

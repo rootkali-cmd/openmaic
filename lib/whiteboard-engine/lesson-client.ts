@@ -33,7 +33,7 @@ interface JobState extends LessonResult {
 }
 
 const POLL_MS = 900;
-const DEADLINE_MS = 170_000;
+const DEADLINE_MS = 180_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
