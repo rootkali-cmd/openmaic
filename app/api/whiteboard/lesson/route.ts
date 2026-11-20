@@ -33,27 +33,35 @@ interface LessonRequest {
   locale?: string;
 }
 
-const SYSTEM_PROMPT = `أنت مدرس عربي على "سبورة دارس" — سبورة ذكية يرسم عليها المدرس باليد بينما يشرح بصوته.
-مهمتك تحويل سؤال الطالب إلى درس: جمل منطوقة بالعربية الفصحى المبسطة + أوامر رسم تظهر في نفس لحظة كل جملة.
+const SYSTEM_PROMPT = `أنت مدرس عربي على "سبورة دارس" — سبورة ذكية يكتب ويرسم عليها المدرس بيده بينما يشرح بصوته.
+مهمتك تحويل سؤال الطالب إلى درس قصير ومحدد: جمل منطوقة بالعربية الفصحى المبسطة + أوامر رسم تظهر في نفس لحظة كل جملة.
 
 أعد JSON فقط، بدون أي نص خارجه، بهذا الشكل:
 {"title": "عنوان قصير للدرس", "beats": [{"speech": "جملة ينطقها المدرس", "draws": [أمر رسم]}]}
 
-قواعد الدرس:
-- من 2 إلى 6 جمل (beats). كل جملة 12 إلى 45 كلمة، موجهة للطالب، تشرح خطوة واحدة فقط.
-- كل beat يحمل 1 إلى 4 أوامر رسم تظهر تدريجياً أثناء نطق الجملة. اجعل آخر أمر في الجملة هو الذي يكمل الفكرة.
-- لا تكرر نفس المعلومة في جملتين. لا تستخدم رموزاً توضيحية (emojis).
-- الشرح صوتياً والرسم مختصر: اكتب على السبورة عناوين ومعادلات وجداول ورسوماً، لا فقرات.
+قواعد الشرح:
+- من 3 إلى 5 خطوات. كل خطوة جملة واحدة من 12 إلى 30 كلمة، تشرح فكرة واحدة وتضيف معلومة جديدة.
+- ابدأ من حياة الطالب: مثال محسوس أو سؤال، ثم القاعدة، ثم مثال يثبتها. استخدم أرقاماً حقيقية (كثافة الحديد 7.8 جم/سم³، كثافة الماء 1 جم/سم³، كثافة الهواء 0.0012 جم/سم³).
+- خصّص الشرح للسؤال نفسه: لا تعريف عام، ولا تكرر نص السؤال كعنوان. العنوان يضيف معنى، مثال: "ليه الحديد يغرق والفلين يطفو؟".
+- لا تكرر معلومة في خطوتين، ولا تستخدم رموزاً تعبيرية (emojis).
+- الجملة تُنطق بصوت المدرس: اكتبها كلاماً طبيعياً، لا عناوين ولا نقاط.
+
+قواعد السبورة (مهمة):
+- السبورة زي كشكول المدرس: عنوان كبير، وأسطر قصيرة مكتوبة بخط اليد، ومعادلة أو شكل واحد لما تحتاجه فقط.
+- كل خطوة فيها من عنصر واحد إلى 3 عناصر، وارتفاعها الكلي لا يزيد عن 240px.
+- ممنوع أكثر من شكل واحد (RECTANGLE / CIRCLE / FLOWCHART / TABLE) في الخطوة الواحدة، وممنوع الصناديق الفارغة أو الأشكال بلا معنى.
+- الشكل له وظيفة فقط: تحويط مثال، سهم بين سبب ونتيجة، جدول مقارنة من صفين أو ثلاثة، أو مخطط من 3 عقد بحد أقصى.
+- التخطيط النهائي يُرتّب تلقائياً من فوق لتحت، فضع عناصر الخطوة الواحدة متقاربة، ولا تحاول ملء السبورة.
+- لونان فقط: الحبر الداكن #3D315E للشرح، ولون واحد للتأكيد (#FFD84D أو #5B3FC7).
 
 نظام الإحداثيات: السبورة بعرض ${BOARD_WIDTH} وارتفاع ${BOARD_HEIGHT}، الصفر في الزاوية العليا اليسرى.
 ${'${PLACEMENT}'}
 
 الألوان المتاحة: الحبر الداكن #3D315E (الافتراضي)، بنفسجي #5B3FC7، فاتح #9178E6، أصفر للتأكيد #FFD84D، أزرق #5FA0FC، أخضر #00C386، مرجاني #FB7E5B.
-استخدم الأصفر فقط للتأكيد على أهم فكرة واحدة في الدرس.
 
 أوامر الرسم المسموحة فقط (JSON مسطح، ممنوع أي JavaScript أو HTML أو صور):
 - {"op":"TEXT","x":0-1000,"y":0-720,"text":"...","size":8-120,"color":"#...","weight":400|700,"anchor":"start"|"middle"|"end"}
-- {"op":"MATH","x":..,"y":..,"latex":"F = m \\\\times a","size":..,"display":true}   (LaTeX فقط)
+- {"op":"MATH","x":..,"y":..,"latex":"F = m \\times a","size":..,"display":true}   (LaTeX فقط)
 - {"op":"LINE","x1":..,"y1":..,"x2":..,"y2":..,"color":"#...","width":1-14,"style":"solid"|"dashed"|"dotted"}
 - {"op":"ARROW","x1":..,"y1":..,"x2":..,"y2":..,"color":"#...","width":..,"curve":false,"double":false}
 - {"op":"CIRCLE","cx":..,"cy":..,"r":..,"fill":"#...|none","stroke":"#...","strokeWidth":..,"label":"...","labelSize":..}
@@ -66,30 +74,29 @@ ${'${PLACEMENT}'}
 - {"op":"MOVE","target":"id","dx":0,"dy":0}
 
 إرشادات الرسم:
-- املأ السبورة: ضع المحتوى داخل x من 60 إلى 940 و y من 60 إلى 660، والكتل المتجاورة بينها 40 إلى 70px فقط. لا تترك عنصراً وحيداً بعيداً في طرف السبورة.
-- كل عنصر له مكانه: لا ترسم شكلين متداخلين، ولا تضع نصاً فوق سهم أو داخل شكل مخصص لشيء آخر. احسب ارتفاع كل كتلة وابدأ التالية تحتها.
-- الشكل الواحد لا يزيد عن 420px عرضاً ولا 220px ارتفاعاً، حتى تبقى الرسوم متقاربة ومقروءة.
-- عند رسم دورة أو علاقة، ضع العناصر مترابطة في منتصف السبورة واربطها بأسهم قصيرة واضحة، بحيث يبدأ السهم وينتهي خارج حدود العنصرين.
-- HIGHLIGHT للتأكيد فقط: منطقة واحدة لا تزيد عن 600×200 حول سطر أو كتلة واحدة، وممنوع تلوين نصف السبورة أو أكثر.
-- إذا أردت الإشارة لعنصر لاحقاً (HIGHLIGHT/MOVE/ERASE) فامنحه id إنجليزياً قصيراً وفرده، ولا تعد استخدام نفس ال id لعنصر جديد.
-- FLOWCHART: من 2 إلى 6 عقد بـ ids إنجليزية قصيرة؛ التخطيط يُحسب تلقائياً فلا تقلق بترتيب العقد.
+- الخطوة الأولى: عنوان الدرس TEXT بحجم 40-52، وتحته سطر واحد 24-28 يوضح الفكرة.
+- أسطر النص بحجم 22-30، سطر واحد لكل فكرة، بلا فقرات طويلة.
 - المعادلات بالـ LaTeX داخل MATH بدلاً من كتابتها نصاً.
-- لا تتجاوز حدود السبورة، واترك مسافة 40px بين الكتل المتجاورة.
-- ابدأ الجملة الأولى بعنوان الدرس كـ TEXT كبير.
+- الشكل الواحد لا يزيد عن 380px عرضاً ولا 200px ارتفاعاً.
+- HIGHLIGHT للتأكيد فقط: منطقة صغيرة حول سطر أو كلمة (أقصى 420×90)، وممنوع تلوين نصف السبورة.
+- إذا أردت الإشارة لعنصر لاحقاً (HIGHLIGHT/MOVE/ERASE) فامنحه id إنجليزياً قصيراً وفرده في نفس الخطوة، ولا تعد استخدام نفس ال id.
+- لا ترسم خطاً أو سهماً يمر فوق نص.
 
 ${'${EXAMPLE}'}`;
 
-const EXAMPLE = `مثال (اختصره كما تريد):
-{"title":"قانون نيوتن الثاني","beats":[
- {"speech":"قانون نيوتن الثاني بيقول إن القوة تساوي الكتلة في التسارع.","draws":[
-   {"op":"TEXT","x":70,"y":80,"text":"قانون نيوتن الثاني","size":42,"weight":700},
-   {"op":"HIGHLIGHT","region":{"x":60,"y":46,"w":420,"h":50},"mode":"wash"}]},
- {"speech":"نكتبها رياضياً: القوة تساوي الكتلة مضروبة في التسارع.","draws":[
-   {"op":"MATH","x":120,"y":210,"latex":"F = m \\\\times a","size":52,"color":"#5B3FC7"}]},
- {"speech":"لو زاد التسارع زادت القوة، ولو زادت الكتلة احتاجت قوة أكبر.","draws":[
-   {"op":"RECTANGLE","x":90,"y":320,"w":330,"h":140,"stroke":"#5B3FC7","label":"تسارع أكبر ← قوة أكبر","labelSize":21},
-   {"op":"ARROW","x1":450,"y1":390,"x2":620,"y2":390,"color":"#9178E6","width":3},
-   {"op":"CIRCLE","cx":740,"cy":390,"r":100,"stroke":"#5B3FC7","label":"F = ma","labelSize":24}]}
+const EXAMPLE = `مثال (اتبع نفس الأسلوب، وغيّر المحتوى حسب السؤال):
+{"title":"ليه الحديد يغرق والفلين يطفو؟","beats":[
+ {"speech":"خد بالك من حاجة غريبة: مكعب حديد صغير بيغرق، ومكعب فلين أكبر منه بيطفو. إزاي؟","draws":[
+   {"op":"TEXT","x":70,"y":80,"text":"ليه الحديد يغرق والفلين يطفو؟","size":42,"weight":700},
+   {"op":"TEXT","x":70,"y":130,"text":"نفس الحجم... ونتيجة مختلفة","size":24,"color":"#5B3FC7"}]},
+ {"speech":"السبب إن كل مادة ليها كثافة: قد إيه كتلة في كل سنتيمتر مكعب. كثافة الحديد 7.8، والفلين 0.24.","draws":[
+   {"op":"TABLE","x":150,"y":230,"headers":["المادة","الكثافة (جم/سم³)"],"rows":[["حديد","7.8"],["ماء","1.0"],["فلين","0.24"]],"width":420,"cellH":46},
+   {"op":"HIGHLIGHT","region":{"x":145,"y":226,"w":430,"h":54},"mode":"wash","color":"#FFD84D"}]},
+ {"speech":"فلما نحط الجسم في الماء، الكثافة بتقرر مصيره: لو أعلى من الماء يغرق، ولو أقل يطفو.","draws":[
+   {"op":"MATH","x":200,"y":470,"latex":"\\rho = \\frac{m}{V}","size":44},
+   {"op":"TEXT","x":200,"y":540,"text":"ρ أكبر من 1 → يغرق    ρ أقل من 1 → يطفو","size":24}]},
+ {"speech":"وعشان كده السفينة من حديد بس بتطفو: جسمها مجوف وفيه هوا، فكثافتها الكلية أقل من كثافة الماء.","draws":[
+   {"op":"TEXT","x":120,"y":620,"text":"السفينة: حديد + هوا = كثافة أقل من الماء","size":26,"color":"#3D315E"}]}
 ]}`;
 
 export async function POST(req: NextRequest) {
@@ -156,18 +163,13 @@ interface GenerateContext {
 async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void> {
   const { question, existingBounds: bounds, history, questionSnippet, params } = ctx;
   try {
-    // Placement guidance: never draw on top of an existing lesson.
-    let placement =
-      '- السبورة فارغة: وزّع المحتوى من الأعلى للأسفل تاركاً مساحة بين الكتل.';
-    if (bounds && bounds.h > 0) {
-      const belowY = Math.round(bounds.y + bounds.h + 50);
-      placement =
-        bounds.y + bounds.h < BOARD_HEIGHT - 260
-          ? `- السبورة عليها محتوى سابق ينتهي عند y=${Math.round(bounds.y + bounds.h)}. ابدأ رسومك من y=${belowY} ونازل، وحافظ على x بين 40 و960.`
-          : `- السبورة عليها محتوى سابق يشغل معظمها. ابدأ عموداً جديداً على اليمين من x=${Math.round(
-              bounds.x + bounds.w + 60,
-            )} و y=40، وضمن حدود السبورة.`;
-    }
+    // Placement guidance: the board layout is computed on the server (see
+    // layoutBeats), so the model is told what is already on the paper and
+    // nothing about coordinates it cannot control.
+    const placement =
+      bounds && bounds.h > 0
+        ? `- السبورة عليها شرح سابق ينتهي عند y=${Math.round(bounds.y + bounds.h)}. درسك سيُرسم أسفله تلقائياً: لا تكرر ما سبق ولا تشير إليه كأنه غير موجود.`
+        : '- السبورة فارغة: ابدأ بعنوان الدرس، ثم فكرة واحدة تحت الأخرى.';
 
     const historyContext =
       history.length > 0
@@ -176,6 +178,10 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
             .map((h) => `- "${h.question}" → درس "${h.title}"`)
             .join('\n')}\nإذا كان السؤال الحالي متابعة له، فالحق الإجابة عليه ضمن الدرس نفسه.\n`
         : '';
+
+    // A reply that arrives on an interrupted board must land below the
+    // lesson already written there, never on top of it.
+    const layoutStartY = bounds && bounds.h > 0 ? bounds.y + bounds.h + 40 : undefined;
 
     const system = SYSTEM_PROMPT.replace('${PLACEMENT}', placement).replace(
       '${EXAMPLE}',
@@ -189,14 +195,14 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
     // Each attempt is bounded so two of them still fit inside the client's
     // wait; anything that stays unusable is reported honestly instead of
     // drawing a canned lesson that has nothing to do with the question.
-    const runModel = (maxOutputTokens: number, timeoutMs: number) =>
+    const runModel = (maxOutputTokens: number, signal: AbortSignal) =>
       callLLM(
         {
           model: params.model,
           system,
           prompt,
           maxOutputTokens,
-          abortSignal: AbortSignal.timeout(timeoutMs),
+          abortSignal: signal,
         },
         'whiteboard-lesson',
         undefined,
@@ -207,40 +213,67 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         { serverManaged: params.serverManaged },
       );
 
-    // The model occasionally truncates its JSON, emits a malformed draw
-    // object, or burns its whole window on hidden reasoning until the attempt
-    // times out. All three are transient, so each attempt is bounded and the
-    // next one starts while the student's window still has room; a canned
-    // lesson would answer a different question.
-    const ATTEMPT_DEADLINE_MS = 150_000;
-    const budgets = [6_000, 16_000, 16_000];
-    const startedAt = Date.now();
-    let result: Awaited<ReturnType<typeof runModel>> | null = null;
-    let parsed: ReturnType<typeof parseLessonReply> = null;
-    let lastError: unknown = null;
+    // Two ways this stage is slow: the model truncates its JSON (or ties a
+    // key to a value), and the model spends a minute on hidden reasoning
+    // before writing anything. Waiting for a failed attempt before starting
+    // the next one made the student stare at an empty board for up to two
+    // minutes. So the retries are *hedged*: if the first attempt has not
+    // produced a usable lesson after a short grace period, a second one starts
+    // alongside it, and whichever finishes first wins.
+    const HEDGE_AFTER_MS = 15_000;
+    const WINDOW_MS = 150_000;
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), WINDOW_MS);
 
-    for (let attempt = 0; attempt < budgets.length; attempt += 1) {
-      const remaining = ATTEMPT_DEADLINE_MS - (Date.now() - startedAt);
-      if (remaining < 25_000) break;
+    const state: {
+      parsed: ReturnType<typeof parseLessonReply>;
+      sawText: boolean;
+      lastError: unknown;
+    } = { parsed: null, sawText: false, lastError: null };
+
+    const attempt = async (budget: number): Promise<void> => {
       try {
-        result = await runModel(budgets[attempt], Math.min(100_000, remaining));
-        parsed = parseLessonReply(result.text ?? '');
-        if (parsed) break;
+        const result = await runModel(budget, controller.signal);
+        if (state.parsed) return;
+        state.sawText = true;
+        const parsed = parseLessonReply(result.text ?? '', { startY: layoutStartY });
+        if (parsed) {
+          state.parsed = parsed;
+          // Everything else in flight is now wasted work and wasted tokens.
+          controller.abort();
+          return;
+        }
         log.warn(
           `Lesson reply unusable (finish=${result.finishReason ?? 'unknown'}, ` +
-            `chars=${(result.text ?? '').length}), retrying ` +
-            `[attempt ${attempt + 1}, q="${questionSnippet}..."]`,
+            `chars=${(result.text ?? '').length}) [q="${questionSnippet}..."]`,
         );
       } catch (error) {
-        lastError = error;
+        if (state.parsed) return;
+        state.lastError = error;
         log.warn(
-          `Lesson attempt ${attempt + 1} failed (${error instanceof Error ? error.message : 'unknown'}) ` +
+          `Lesson attempt failed (${error instanceof Error ? error.message : 'unknown'}) ` +
             `[q="${questionSnippet}..."]`,
         );
       }
+    };
+
+    const hedge = (ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+      });
+
+    try {
+      await Promise.all([
+        attempt(6_000),
+        hedge(HEDGE_AFTER_MS).then(() => (state.parsed ? undefined : attempt(16_000))),
+        hedge(HEDGE_AFTER_MS * 2).then(() => (state.parsed ? undefined : attempt(16_000))),
+      ]);
+    } finally {
+      clearTimeout(deadline);
     }
 
-    if (!parsed && result === null && lastError) throw lastError;
+    const parsed = state.parsed;
+    if (!parsed && !state.sawText && state.lastError) throw state.lastError;
 
     if (parsed) {
       log.info(
@@ -258,10 +291,7 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
     }
 
     log.warn(
-      `Model reply unparseable (finish=${result?.finishReason ?? 'unknown'}, ` +
-        `chars=${(result?.text ?? '').length}, head=${JSON.stringify(
-          (result?.text ?? '').slice(0, 160),
-        )}) [q="${questionSnippet}..."]`,
+      `Model reply unparseable after every attempt [q="${questionSnippet}..."]`,
     );
     finishLessonJob(jobId, {
       status: 'failed',

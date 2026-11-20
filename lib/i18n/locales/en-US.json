@@ -3286,7 +3286,8 @@
       "2": "Draw the water cycle",
       "3": "Explain photosynthesis"
     },
-    "penLabel": "Darsak"
+    "penLabel": "Darsak",
+    "loadingHint": "Writing on the board in a moment"
   },
   "shell": {
     "nav": {

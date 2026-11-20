@@ -7,7 +7,13 @@
  * accumulated DrawCommands.
  */
 import { z } from 'zod';
-import { parseDrawCommands, type DrawCommand } from './dsl';
+import {
+  BOARD_WIDTH,
+  commandBBox,
+  parseDrawCommands,
+  type BBox,
+  type DrawCommand,
+} from './dsl';
 
 const beatSchema = z.object({
   /** The sentence the teacher says out loud (Modern Standard Arabic). */
@@ -30,6 +36,80 @@ export interface LessonBeat {
 export interface Lesson {
   title: string;
   beats: LessonBeat[];
+}
+
+/**
+ * The model is good at deciding WHAT to draw and bad at deciding WHERE. Left
+ * alone it scatters labels across the board, stacks shapes on top of text and
+ * leaves half the paper empty. The board is therefore laid out here: each
+ * beat's cluster is centred in the readable column and stacked below the
+ * previous one, so the lesson reads top-to-bottom like a teacher writing.
+ *
+ * Only whole beats are moved, never elements inside one, so arrows and labels
+ * that belong together keep their relationship.
+ */
+const SAFE_X = 56;
+const SAFE_TOP = 44;
+const BEAT_GAP = 40;
+
+function shiftCommand(cmd: DrawCommand, dx: number, dy: number): DrawCommand {
+  switch (cmd.op) {
+    case 'TEXT':
+    case 'MATH':
+    case 'RECTANGLE':
+    case 'TABLE':
+    case 'FLOWCHART':
+      return { ...cmd, x: cmd.x + dx, y: cmd.y + dy };
+    case 'LINE':
+    case 'ARROW':
+      return { ...cmd, x1: cmd.x1 + dx, y1: cmd.y1 + dy, x2: cmd.x2 + dx, y2: cmd.y2 + dy };
+    case 'CIRCLE':
+      return { ...cmd, cx: cmd.cx + dx, cy: cmd.cy + dy };
+    case 'HIGHLIGHT':
+      return cmd.region
+        ? { ...cmd, region: { ...cmd.region, x: cmd.region.x + dx, y: cmd.region.y + dy } }
+        : cmd;
+    default:
+      // ERASE/GROUP/MOVE address other elements by id; they travel with the
+      // beat they belong to and must not be rewritten.
+      return cmd;
+  }
+}
+
+function layoutBeats(beats: LessonBeat[], startY = SAFE_TOP): void {
+  let cursorY = Math.max(SAFE_TOP, Math.round(startY));
+
+  for (const beat of beats) {
+    // A highlight that points at an element from an earlier beat would flick
+    // to the old position once the beats separate; keep only same-beat ones.
+    const localIds = new Set(
+      beat.draws.map((cmd) => ('id' in cmd ? cmd.id : undefined)).filter(Boolean) as string[],
+    );
+    beat.draws = beat.draws.filter(
+      (cmd) => cmd.op !== 'HIGHLIGHT' || !cmd.target || localIds.has(cmd.target),
+    );
+
+    const boxes = beat.draws
+      .map((cmd) => commandBBox(cmd))
+      .filter((box): box is BBox => Boolean(box));
+    if (boxes.length === 0) continue;
+
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const maxX = Math.max(...boxes.map((b) => b.x + b.w));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.h));
+    const width = maxX - minX;
+
+    // Centre in the readable column, then pull back inside the margins.
+    let dx = Math.round((BOARD_WIDTH - width) / 2 - minX);
+    if (minX + dx < SAFE_X) dx += SAFE_X - (minX + dx);
+    if (maxX + dx > BOARD_WIDTH - SAFE_X) dx -= maxX + dx - (BOARD_WIDTH - SAFE_X);
+    if (width > BOARD_WIDTH - SAFE_X * 2) dx = SAFE_X - minX;
+
+    const dy = Math.round(cursorY - minY);
+    beat.draws = beat.draws.map((cmd) => shiftCommand(cmd, dx, dy));
+    cursorY += Math.round(maxY - minY) + BEAT_GAP;
+  }
 }
 
 export interface ParsedLesson {
@@ -63,7 +143,12 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-export function parseLesson(input: unknown): ParsedLesson | null {
+export interface LayoutOptions {
+  /** Where the first beat may start — below an interrupted lesson, else the top. */
+  startY?: number;
+}
+
+export function parseLesson(input: unknown, options: LayoutOptions = {}): ParsedLesson | null {
   // Models drift on the soft limits (an over-long sentence, a ninth draw).
   // Clamp those instead of rejecting a lesson that is otherwise usable.
   const root = asRecord(input);
@@ -101,6 +186,7 @@ export function parseLesson(input: unknown): ParsedLesson | null {
   });
 
   if (beats.length === 0) return null;
+  layoutBeats(beats, options.startY);
   return {
     lesson: { title: parsed.data.title.trim(), beats },
     dropped,
@@ -238,6 +324,9 @@ export function extractLessonJson(text: string): unknown {
 }
 
 /** Read a raw model reply all the way to a validated lesson. */
-export function parseLessonReply(text: string): ParsedLesson | null {
-  return parseLesson(extractLessonJson(text));
+export function parseLessonReply(
+  text: string,
+  options: LayoutOptions = {},
+): ParsedLesson | null {
+  return parseLesson(extractLessonJson(text), options);
 }

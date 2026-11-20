@@ -17,7 +17,7 @@
  * A pen cursor rides at the end of the newest stroke so the board reads as
  * the teacher writing by hand rather than elements popping into place.
  */
-import { Eraser, Pencil, Redo2, Undo2 } from 'lucide-react';
+import { Eraser, LoaderCircle, Pencil, Redo2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { WhiteboardRenderer } from '@/components/whiteboard-engine/renderer';
@@ -337,7 +337,34 @@ export function BoardView() {
         ) : null}
       </div>
 
-      {empty ? (
+      {/* Waiting on the lesson: name what is happening instead of leaving the
+          student with a blank page and no sign that anything was sent. */}
+      {empty && status === 'loading' ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
+          <div
+            dir="rtl"
+            className="flex flex-col items-center gap-4 rounded-[28px] border border-[#3D315E]/10 bg-white/92 px-9 py-7 text-center shadow-[0_24px_60px_-30px_rgba(61,49,94,0.55)] backdrop-blur-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="relative grid size-12 place-items-center">
+              <span className="wb-wait-ring absolute inset-0 rounded-full border-2 border-[#5B3FC7]/15" />
+              <LoaderCircle className="size-9 animate-spin text-[#5B3FC7]/80 [animation-duration:1.6s]" />
+            </span>
+            <p className="text-[15px] font-semibold text-[#3D315E]">{t('wb.status.loading')}</p>
+            <p className="flex items-center gap-1.5 text-[12px] text-[#3D315E]/55">
+              <span>{t('wb.loadingHint')}</span>
+              <span className="flex gap-1" aria-hidden>
+                <span className="wb-wait-dot size-1 rounded-full bg-[#5B3FC7]/60" />
+                <span className="wb-wait-dot size-1 rounded-full bg-[#5B3FC7]/60" />
+                <span className="wb-wait-dot size-1 rounded-full bg-[#5B3FC7]/60" />
+              </span>
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {empty && status !== 'loading' ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-5 px-6 text-center">
           <p
             className="wb-hand max-w-xl text-[clamp(1.5rem,3vw,2.2rem)] italic leading-relaxed text-[#3D315E]/90"
