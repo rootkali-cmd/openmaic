@@ -76,7 +76,17 @@ function shiftCommand(cmd: DrawCommand, dx: number, dy: number): DrawCommand {
   }
 }
 
+/** Text wider than the column would run off the paper; shrink it to fit. */
+function shrinkTextToFit(cmd: DrawCommand, maxWidth: number): DrawCommand {
+  if (cmd.op !== 'TEXT' && cmd.op !== 'MATH') return cmd;
+  const box = commandBBox(cmd);
+  if (!box || box.w <= maxWidth) return cmd;
+  const factor = Math.max(0.55, maxWidth / box.w);
+  return { ...cmd, size: Math.max(16, Math.round(cmd.size * factor)) };
+}
+
 function layoutBeats(beats: LessonBeat[], startY = SAFE_TOP): void {
+  const column = BOARD_WIDTH - SAFE_X * 2;
   let cursorY = Math.max(SAFE_TOP, Math.round(startY));
 
   for (const beat of beats) {
@@ -85,9 +95,9 @@ function layoutBeats(beats: LessonBeat[], startY = SAFE_TOP): void {
     const localIds = new Set(
       beat.draws.map((cmd) => ('id' in cmd ? cmd.id : undefined)).filter(Boolean) as string[],
     );
-    beat.draws = beat.draws.filter(
-      (cmd) => cmd.op !== 'HIGHLIGHT' || !cmd.target || localIds.has(cmd.target),
-    );
+    beat.draws = beat.draws
+      .filter((cmd) => cmd.op !== 'HIGHLIGHT' || !cmd.target || localIds.has(cmd.target))
+      .map((cmd) => shrinkTextToFit(cmd, column));
 
     const boxes = beat.draws
       .map((cmd) => commandBBox(cmd))
@@ -104,7 +114,7 @@ function layoutBeats(beats: LessonBeat[], startY = SAFE_TOP): void {
     let dx = Math.round((BOARD_WIDTH - width) / 2 - minX);
     if (minX + dx < SAFE_X) dx += SAFE_X - (minX + dx);
     if (maxX + dx > BOARD_WIDTH - SAFE_X) dx -= maxX + dx - (BOARD_WIDTH - SAFE_X);
-    if (width > BOARD_WIDTH - SAFE_X * 2) dx = SAFE_X - minX;
+    if (width > column) dx = SAFE_X - minX;
 
     const dy = Math.round(cursorY - minY);
     beat.draws = beat.draws.map((cmd) => shiftCommand(cmd, dx, dy));
@@ -265,6 +275,67 @@ function repairJson(candidate: string): string {
     .replace(GLUED_OP, '$1$2","$3$4');
 }
 
+/**
+ * LaTeX is the one place a model reliably writes illegal JSON: `"\sqrt"` is
+ * not a JSON escape, so one formula invalidates the whole reply, and `"\rho"`
+ * silently turns into a carriage return. Both are repaired here — a backslash
+ * in front of anything that is not a JSON escape becomes a literal backslash,
+ * and a raw control character becomes the LaTeX command it stood for. Only
+ * text inside strings is touched, so structure cannot be damaged.
+ */
+const LATEX_CONTROL: Record<string, string> = {
+  '\r': '\\\\r',
+  '\f': '\\\\f',
+  '\b': '\\\\b',
+  '\t': '\\\\t',
+};
+
+function escapeLatexBare(candidate: string): string {
+  let out = '';
+  let inString = false;
+  for (let i = 0; i < candidate.length; i += 1) {
+    const ch = candidate[i];
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      continue;
+    }
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      continue;
+    }
+    if (ch === '\\') {
+      const next = candidate[i + 1];
+      if (next === '"' || next === '\\' || next === '/' || 'bfnrt'.includes(next ?? ' ')) {
+        out += ch + next;
+        i += 1;
+        continue;
+      }
+      if (next === 'u' && /^[0-9a-fA-F]{4}$/.test(candidate.slice(i + 2, i + 6))) {
+        out += candidate.slice(i, i + 6);
+        i += 5;
+        continue;
+      }
+      // `\sqrt`, `\Delta`, a lone backslash: keep it as LaTeX text.
+      out += '\\\\';
+      continue;
+    }
+    const latex = LATEX_CONTROL[ch];
+    if (latex) {
+      out += latex;
+      continue;
+    }
+    const code = ch.codePointAt(0) ?? 0;
+    if (code < 0x20) {
+      out += `\\u${code.toString(16).padStart(4, '0')}`;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
 function tryParseOnce(candidate: string): unknown {
   try {
     return JSON.parse(candidate) as unknown;
@@ -276,9 +347,16 @@ function tryParseOnce(candidate: string): unknown {
 function tryParse(candidate: string): unknown {
   const direct = tryParseOnce(candidate);
   if (direct !== undefined) return direct;
-  const repaired = repairJson(candidate);
-  if (repaired === candidate) return undefined;
-  return tryParseOnce(repaired);
+  for (const attempt of [
+    repairJson(candidate),
+    escapeLatexBare(candidate),
+    escapeLatexBare(repairJson(candidate)),
+  ]) {
+    if (attempt === candidate) continue;
+    const parsed = tryParseOnce(attempt);
+    if (parsed !== undefined) return parsed;
+  }
+  return undefined;
 }
 
 /** Index of the brace that closes the object opened at `start`. */
