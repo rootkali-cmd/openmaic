@@ -74,6 +74,9 @@ export function BoardView() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ scale: 1, tx: 0, ty: 0 });
+  /* Seconds spent waiting on the model, so the card can admit that a slow
+     answer is still an answer instead of looking frozen. */
+  const [waitedSeconds, setWaitedSeconds] = useState(0);
   const [smooth, setSmooth] = useState(false);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -268,6 +271,18 @@ export function BoardView() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (status !== 'loading') {
+      setWaitedSeconds(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      setWaitedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [status]);
+
   const empty = elements.length === 0;
 
   /* The pen is derived from the newest element, never stored. It starts at
@@ -353,7 +368,9 @@ export function BoardView() {
             </span>
             <p className="text-[15px] font-semibold text-[#3D315E]">{t('wb.status.loading')}</p>
             <p className="flex items-center gap-1.5 text-[12px] text-[#3D315E]/55">
-              <span>{t('wb.loadingHint')}</span>
+              <span>
+                {waitedSeconds >= 18 ? t('wb.loadingSlow') : t('wb.loadingHint')}
+              </span>
               <span className="flex gap-1" aria-hidden>
                 <span className="wb-wait-dot size-1 rounded-full bg-[#5B3FC7]/60" />
                 <span className="wb-wait-dot size-1 rounded-full bg-[#5B3FC7]/60" />

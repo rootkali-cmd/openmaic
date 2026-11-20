@@ -29,7 +29,18 @@ interface JobStart {
 
 interface JobState extends LessonResult {
   status?: 'pending' | 'done' | 'failed';
+  code?: string;
+  message?: string;
   error?: string;
+}
+
+/** A job only disappears when the dyno restarted or the entry expired. */
+class LessonRequestError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.code = code;
+  }
 }
 
 const POLL_MS = 900;
@@ -42,6 +53,20 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function requestLesson(input: LessonInput): Promise<LessonResult> {
+  try {
+    return await requestLessonOnce(input);
+  } catch (error) {
+    // A deploy or dyno recycle wipes the in-process job map, so a question
+    // that was already sent can come back as "job not found". The question is
+    // still valid, so ask once more instead of showing an apology.
+    if (error instanceof LessonRequestError && error.code === 'JOB_NOT_FOUND') {
+      return requestLessonOnce(input);
+    }
+    throw error;
+  }
+}
+
+async function requestLessonOnce(input: LessonInput): Promise<LessonResult> {
   const start = await fetch('/api/whiteboard/lesson', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,7 +74,7 @@ export async function requestLesson(input: LessonInput): Promise<LessonResult> {
   });
   const started = (await start.json()) as JobStart;
   if (!start.ok || !started.jobId) {
-    throw new Error(started.error ?? `HTTP ${start.status}`);
+    throw new LessonRequestError(started.error ?? `HTTP ${start.status}`);
   }
 
   const deadline = Date.now() + DEADLINE_MS;
@@ -61,8 +86,13 @@ export async function requestLesson(input: LessonInput): Promise<LessonResult> {
     if (!response.ok) continue;
     const state = (await response.json()) as JobState;
     if (!state.status || state.status === 'pending') continue;
-    if (state.status === 'failed') throw new Error(state.error ?? 'lesson failed');
+    if (state.status === 'failed') {
+      throw new LessonRequestError(
+        state.message ?? state.error ?? 'lesson failed',
+        state.code,
+      );
+    }
     return { title: state.title, beats: state.beats, fallback: state.fallback };
   }
-  throw new Error('lesson timed out');
+  throw new LessonRequestError('lesson timed out', 'TIMEOUT');
 }

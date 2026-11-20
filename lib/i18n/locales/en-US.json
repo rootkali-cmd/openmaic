@@ -3287,7 +3287,8 @@
       "3": "Explain photosynthesis"
     },
     "penLabel": "Darsak",
-    "loadingHint": "Writing on the board in a moment"
+    "loadingHint": "Writing on the board in a moment",
+    "loadingSlow": "Still thinking — the lesson is on its way"
   },
   "shell": {
     "nav": {
