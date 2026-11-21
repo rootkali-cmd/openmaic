@@ -11,6 +11,7 @@
 import { NextRequest } from 'next/server';
 
 import { callLLM } from '@/lib/ai/llm';
+import { getModel, parseModelString } from '@/lib/ai/providers';
 import { createLogger } from '@/lib/logger';
 import {
   apiError,
@@ -195,10 +196,14 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
     // Each attempt is bounded so two of them still fit inside the client's
     // wait; anything that stays unusable is reported honestly instead of
     // drawing a canned lesson that has nothing to do with the question.
-    const runModel = (maxOutputTokens: number, signal: AbortSignal) =>
+    const runModel = (
+      maxOutputTokens: number,
+      signal: AbortSignal,
+      model = params.model,
+    ) =>
       callLLM(
         {
-          model: params.model,
+          model,
           system,
           prompt,
           maxOutputTokens,
@@ -210,20 +215,38 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         // essay: at the model's default effort the whole output budget goes to
         // hidden reasoning and the visible reply comes back empty.
         { effort: 'low' },
-        { serverManaged: params.serverManaged },
+        // A hedge model is named by this server, not by the request, but it
+        // carries no fallback chain of its own.
+        { serverManaged: model === params.model && params.serverManaged },
       );
 
-    // Two ways this stage is slow: the model truncates its JSON (or ties a
-    // key to a value), and the model spends a minute on hidden reasoning
-    // before writing anything. Waiting for a failed attempt before starting
-    // the next one made the student stare at an empty board for up to two
-    // minutes. So the retries are *hedged*: if the first attempt has not
-    // produced a usable lesson after a short grace period, a second one starts
-    // alongside it, and whichever finishes first wins.
-    const HEDGE_AFTER_MS = 15_000;
+    // Waiting is the whole cost of this stage: the provider can answer the
+    // same question in five seconds or in thirty, and the board stays empty
+    // until it does. Waiting for a failed attempt before starting the next one
+    // made that worse. So the attempts are *hedged*: a second attempt starts
+    // alongside the first after a short grace period, on a different model,
+    // and the first usable lesson wins and cancels the rest.
+    const HEDGE_AFTER_MS = 8_000;
     const WINDOW_MS = 150_000;
     const controller = new AbortController();
     const deadline = setTimeout(() => controller.abort(), WINDOW_MS);
+
+    // Racing a second provider is what turns a stalled provider into a slow
+    // answer instead of no answer. It is optional: without a key the primary
+    // model simply gets a second attempt of its own.
+    const altId = (
+      process.env.WHITEBOARD_HEDGE_MODEL ?? 'openrouter:deepseek/deepseek-v4-flash-0731'
+    ).trim();
+    const altKey = process.env.OPENROUTER_API_KEY?.trim();
+    let altModel: typeof params.model | null = null;
+    if (altKey && altId) {
+      try {
+        const { providerId, modelId } = parseModelString(altId);
+        altModel = getModel({ providerId, modelId, apiKey: altKey }).model;
+      } catch (error) {
+        log.warn(`Hedge model unavailable (${altId})`, error);
+      }
+    }
 
     const state: {
       parsed: ReturnType<typeof parseLessonReply>;
@@ -231,9 +254,18 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
       lastError: unknown;
     } = { parsed: null, sawText: false, lastError: null };
 
-    const attempt = async (budget: number): Promise<void> => {
+    const attempt = async (
+      budget: number,
+      model: typeof params.model,
+      label: string,
+    ): Promise<void> => {
+      const startedAt = Date.now();
       try {
-        const result = await runModel(budget, controller.signal);
+        const result = await runModel(budget, controller.signal, model);
+        log.info(
+          `Lesson attempt ${label} answered in ${Date.now() - startedAt}ms ` +
+            `(finish=${result.finishReason ?? 'unknown'}, chars=${(result.text ?? '').length})`,
+        );
         if (state.parsed) return;
         state.sawText = true;
         const parsed = parseLessonReply(result.text ?? '', { startY: layoutStartY });
@@ -251,8 +283,8 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         if (state.parsed) return;
         state.lastError = error;
         log.warn(
-          `Lesson attempt failed (${error instanceof Error ? error.message : 'unknown'}) ` +
-            `[q="${questionSnippet}..."]`,
+          `Lesson attempt ${label} failed after ${Date.now() - startedAt}ms ` +
+            `(${error instanceof Error ? error.message : 'unknown'}) [q="${questionSnippet}..."]`,
         );
       }
     };
@@ -264,9 +296,15 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
 
     try {
       await Promise.all([
-        attempt(6_000),
-        hedge(HEDGE_AFTER_MS).then(() => (state.parsed ? undefined : attempt(16_000))),
-        hedge(HEDGE_AFTER_MS * 2).then(() => (state.parsed ? undefined : attempt(16_000))),
+        attempt(6_000, params.model, 'primary'),
+        hedge(HEDGE_AFTER_MS).then(() =>
+          state.parsed
+            ? undefined
+            : attempt(8_000, altModel ?? params.model, altModel ? 'hedge' : 'primary-2'),
+        ),
+        hedge(HEDGE_AFTER_MS * 2).then(() =>
+          state.parsed ? undefined : attempt(16_000, params.model, 'primary-3'),
+        ),
       ]);
     } finally {
       clearTimeout(deadline);
