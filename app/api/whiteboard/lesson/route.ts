@@ -254,6 +254,14 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
       lastError: unknown;
     } = { parsed: null, sawText: false, lastError: null };
 
+    // Resolves as soon as a lesson is in hand. Without it the request waits
+    // for the unused hedge timers to elapse, which added ten seconds to every
+    // question even though the lesson had already arrived.
+    let won: (() => void) | null = null;
+    const winner = new Promise<void>((resolve) => {
+      won = resolve;
+    });
+
     const attempt = async (
       budget: number,
       model: typeof params.model,
@@ -273,6 +281,7 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
           state.parsed = parsed;
           // Everything else in flight is now wasted work and wasted tokens.
           controller.abort();
+          won?.();
           return;
         }
         log.warn(
@@ -295,16 +304,19 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
       });
 
     try {
-      await Promise.all([
-        attempt(6_000, params.model, 'primary'),
-        hedge(HEDGE_AFTER_MS).then(() =>
-          state.parsed
-            ? undefined
-            : attempt(8_000, altModel ?? params.model, altModel ? 'hedge' : 'primary-2'),
-        ),
-        hedge(HEDGE_AFTER_MS * 2).then(() =>
-          state.parsed ? undefined : attempt(16_000, params.model, 'primary-3'),
-        ),
+      await Promise.race([
+        Promise.all([
+          attempt(6_000, params.model, 'primary'),
+          hedge(HEDGE_AFTER_MS).then(() =>
+            state.parsed
+              ? undefined
+              : attempt(8_000, altModel ?? params.model, altModel ? 'hedge' : 'primary-2'),
+          ),
+          hedge(HEDGE_AFTER_MS * 2).then(() =>
+            state.parsed ? undefined : attempt(16_000, params.model, 'primary-3'),
+          ),
+        ]),
+        winner,
       ]);
     } finally {
       clearTimeout(deadline);
