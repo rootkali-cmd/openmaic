@@ -20,10 +20,11 @@ import { toast } from 'sonner';
 
 import { AppShell } from '@/components/shell/app-shell';
 import { BoardView } from '@/components/whiteboard-engine/board-view';
-import { InputBar } from '@/components/whiteboard-engine/input-bar';
+import { InputBar, type AttachedImage } from '@/components/whiteboard-engine/input-bar';
 import { LessonStatus } from '@/components/whiteboard-engine/lesson-status';
 import { TeacherHud } from '@/components/whiteboard-engine/teacher-hud';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { addLesson } from '@/lib/study-data';
 import { resolveBBox, useBoardStore } from '@/lib/whiteboard-engine/board-store';
 import type { Lesson } from '@/lib/whiteboard-engine/lesson';
 import { requestLesson } from '@/lib/whiteboard-engine/lesson-client';
@@ -63,7 +64,7 @@ function WhiteboardSurface() {
   const busyRef = useRef(false);
   const historyRef = useRef<{ question: string; title: string }[]>([]);
 
-  const ask = useCallback(async (question: string) => {
+  const ask = useCallback(async (question: string, image?: AttachedImage) => {
     if (!question.trim() || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
@@ -87,6 +88,11 @@ function WhiteboardSurface() {
         ...historyRef.current,
         { question, title: lesson.title },
       ].slice(-6);
+      addLesson({
+        question,
+        title: lesson.title,
+        summary: lesson.beats[0]?.speech?.slice(0, 160),
+      });
     };
 
     try {
@@ -96,6 +102,7 @@ function WhiteboardSurface() {
         // its content, so only then does the model need the occupied bounds.
         existingBounds: wasActive ? computeBoardBounds() : null,
         history: historyRef.current.slice(-3),
+        image: image ? { dataUrl: image.dataUrl, name: image.name } : undefined,
       });
       if (!Array.isArray(data.beats) || data.beats.length === 0) {
         throw new Error('malformed lesson payload');

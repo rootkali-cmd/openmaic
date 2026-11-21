@@ -1,0 +1,351 @@
+'use client';
+
+/**
+ * Focus timer — the tappable chip in the top bar.
+ *
+ * Knowunity's study timer opens a small panel where the length is chosen
+ * before starting; this is the same interaction with our own minimum: 10
+ * minutes instead of their 5. The countdown survives navigation and reloads
+ * (localStorage), finishes with a toast, and every completed session is
+ * recorded for the personal progress view.
+ */
+import { Pause, Play, RotateCcw, Square, Timer } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+
+import { useI18n } from '@/lib/hooks/use-i18n';
+import { addFocusSession } from '@/lib/study-data';
+
+const STORAGE_KEY = 'darsak-focus-timer-v1';
+export const FOCUS_OPEN_EVENT = 'darsak-focus-open';
+const MIN_MINUTES = 10;
+const MAX_MINUTES = 180;
+const DEFAULT_MINUTES = 25;
+const PRESETS = [10, 15, 20, 25, 30, 45, 60];
+
+interface TimerState {
+  durationMs: number;
+  remainingMs: number;
+  /** Wall-clock deadline while running; null when idle/paused. */
+  endsAt: number | null;
+  running: boolean;
+}
+
+function minutesToState(minutes: number): TimerState {
+  const ms = minutes * 60_000;
+  return { durationMs: ms, remainingMs: ms, endsAt: null, running: false };
+}
+
+const DEFAULT_STATE = minutesToState(DEFAULT_MINUTES);
+
+function isTimerState(value: unknown): value is TimerState {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.durationMs === 'number' &&
+    typeof record.remainingMs === 'number' &&
+    (record.endsAt === null || typeof record.endsAt === 'number') &&
+    typeof record.running === 'boolean'
+  );
+}
+
+function readState(): TimerState {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return isTimerState(parsed) ? parsed : DEFAULT_STATE;
+  } catch {
+    return DEFAULT_STATE;
+  }
+}
+
+function persist(state: TimerState): void {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    /* storage unavailable — this visit still keeps the countdown */
+  }
+}
+
+function formatClock(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+export function StudyTimer() {
+  const { t } = useI18n();
+  const [state, setState] = useState<TimerState>(DEFAULT_STATE);
+  const [now, setNow] = useState(() => Date.now());
+  const [open, setOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const completedRef = useRef(false);
+
+  // Hydrate after mount so the server and the first client render agree.
+  useEffect(() => {
+    const stored = readState();
+    const remaining =
+      stored.running && stored.endsAt
+        ? Math.max(0, stored.endsAt - Date.now())
+        : stored.remainingMs;
+    setState({ ...stored, remainingMs: remaining });
+    setNow(Date.now());
+    setHydrated(true);
+  }, []);
+
+  // A running session counts down from its deadline, not from tick counts,
+  // so a throttled background tab still finishes on time.
+  useEffect(() => {
+    if (!state.running || !state.endsAt) return;
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      if (state.endsAt && current >= state.endsAt && !completedRef.current) {
+        completedRef.current = true;
+        const done: TimerState = {
+          ...state,
+          running: false,
+          endsAt: null,
+          remainingMs: 0,
+        };
+        setState(done);
+        persist(done);
+        addFocusSession({
+          minutes: Math.round(state.durationMs / 60_000),
+          completed: true,
+        });
+        toast.success(t('shell.focus.done'));
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [state, t]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  // Other pages (e.g. the progress view) can open the panel.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(FOCUS_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(FOCUS_OPEN_EVENT, onOpen);
+  }, []);
+
+  const remaining =
+    state.running && state.endsAt ? Math.max(0, state.endsAt - now) : state.remainingMs;
+  const finished = remaining <= 0 && state.remainingMs === 0;
+  const started = !state.running && state.remainingMs < state.durationMs && !finished;
+  const progress = 1 - remaining / Math.max(1, state.durationMs);
+  const minutes = Math.round(state.durationMs / 60_000);
+
+  const update = (next: TimerState) => {
+    completedRef.current = false;
+    setState(next);
+    persist(next);
+    // eslint-disable-next-line react-hooks/purity -- wall-clock read in an event handler
+    setNow(Date.now());
+  };
+
+  const chooseMinutes = (value: number) => {
+    const clamped = Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, value));
+    update(minutesToState(clamped));
+  };
+
+  const start = () => {
+    const ms = state.remainingMs > 0 ? state.remainingMs : state.durationMs;
+    // eslint-disable-next-line react-hooks/purity -- wall-clock read in an event handler
+    update({ ...state, remainingMs: ms, endsAt: Date.now() + ms, running: true });
+  };
+
+  const pause = () => {
+    // eslint-disable-next-line react-hooks/purity -- wall-clock read in an event handler
+    const ms = state.endsAt ? Math.max(0, state.endsAt - Date.now()) : state.remainingMs;
+    update({ ...state, remainingMs: ms, endsAt: null, running: false });
+  };
+
+  const reset = () => {
+    update({ ...state, remainingMs: state.durationMs, endsAt: null, running: false });
+  };
+
+  const finishEarly = () => {
+    const elapsed = Math.max(1, Math.round((state.durationMs - remaining) / 60_000));
+    addFocusSession({ minutes: elapsed, completed: false });
+    toast.info(t('shell.focus.stopped'));
+    reset();
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        title={t('shell.focus.title')}
+        className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] tabular-nums ring-1 transition ${
+          state.running
+            ? 'bg-[#00C386]/15 text-[#7BE8BE] ring-[#00C386]/35 hover:bg-[#00C386]/25'
+            : 'bg-white/[0.05] text-white/65 ring-white/[0.06] hover:bg-white/[0.09]'
+        }`}
+      >
+        <Timer
+          className={`size-3.5 ${state.running ? 'text-[#00C386]' : 'text-[#9178E6]'}`}
+          aria-hidden
+        />
+        <span dir="ltr">{hydrated ? formatClock(remaining) : formatClock(state.durationMs)}</span>
+        {state.running ? (
+          <span className="size-1.5 animate-pulse rounded-full bg-[#00C386]" aria-hidden />
+        ) : null}
+      </button>
+
+      {open ? (
+        <div
+          role="dialog"
+          aria-label={t('shell.focus.title')}
+          className="absolute end-0 top-[calc(100%+10px)] z-50 w-[min(320px,calc(100vw-24px))] rounded-2xl border border-white/10 bg-[#141722] p-4 text-start shadow-[0_30px_80px_-30px_rgba(0,0,0,0.95)]"
+        >
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-xl bg-[#9178E6]/15 text-[#B9A8FF]">
+              <Timer className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-bold text-white">{t('shell.focus.title')}</p>
+              <p className="text-[10px] text-white/40">{t('shell.focus.sub')}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-[34px] font-black tabular-nums leading-none text-white" dir="ltr">
+              {formatClock(remaining)}
+            </p>
+            <p className="mt-1 text-[10px] text-white/40">
+              {finished
+                ? t('shell.focus.done')
+                : state.running
+                  ? t('shell.focus.remaining')
+                  : t('shell.focus.ready')}
+            </p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+              <div
+                className={`h-full rounded-full transition-[width] duration-500 ${
+                  state.running ? 'bg-[#00C386]' : 'bg-[#9178E6]'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {PRESETS.map((preset) => {
+                const selected = minutes === preset;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    disabled={state.running}
+                    onClick={() => chooseMinutes(preset)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums transition disabled:opacity-40 ${
+                      selected
+                        ? 'bg-[#9178E6] text-white'
+                        : 'bg-white/[0.05] text-white/55 hover:bg-white/[0.09] hover:text-white'
+                    }`}
+                  >
+                    {preset} {t('shell.focus.minuteShort')}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                disabled={state.running}
+                onClick={() => chooseMinutes(minutes - 5)}
+                aria-label={t('shell.focus.less')}
+                className="grid size-7 place-items-center rounded-full bg-white/[0.06] text-[13px] font-bold text-white/65 transition hover:bg-white/[0.12] disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className="min-w-[86px] text-center text-[11px] font-semibold text-white/60">
+                {minutes} {t('shell.focus.minutes')}
+              </span>
+              <button
+                type="button"
+                disabled={state.running}
+                onClick={() => chooseMinutes(minutes + 5)}
+                aria-label={t('shell.focus.more')}
+                className="grid size-7 place-items-center rounded-full bg-white/[0.06] text-[13px] font-bold text-white/65 transition hover:bg-white/[0.12] disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[9.5px] text-white/30">
+              {t('shell.focus.minHint')}
+            </p>
+          </div>
+
+          <div className="mt-3 flex items-center gap-2">
+            {state.running ? (
+              <button
+                type="button"
+                onClick={pause}
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#00C386] text-[12px] font-bold text-[#06251a] transition hover:bg-[#23d69c]"
+              >
+                <Pause className="size-3.5" aria-hidden />
+                {t('shell.focus.pause')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={start}
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#9178E6] text-[12px] font-bold text-white transition hover:bg-[#7C63D8]"
+              >
+                <Play className="size-3.5" aria-hidden />
+                {started ? t('shell.focus.resume') : t('shell.focus.start')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={reset}
+              title={t('shell.focus.reset')}
+              aria-label={t('shell.focus.reset')}
+              className="grid size-9 place-items-center rounded-full bg-white/[0.06] text-white/55 transition hover:bg-white/[0.12] hover:text-white"
+            >
+              <RotateCcw className="size-4" aria-hidden />
+            </button>
+            {started || state.running ? (
+              <button
+                type="button"
+                onClick={finishEarly}
+                title={t('shell.focus.finish')}
+                aria-label={t('shell.focus.finish')}
+                className="grid size-9 place-items-center rounded-full bg-white/[0.06] text-white/55 transition hover:bg-white/[0.12] hover:text-white"
+              >
+                <Square className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

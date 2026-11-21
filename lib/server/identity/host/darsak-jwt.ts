@@ -44,6 +44,27 @@ interface DarsakPayload {
   [key: string]: unknown;
 }
 
+/**
+ * The profile the Darsak API puts on the handoff assertion (name/email from
+ * its user row). It rides the session cookie so the app can greet a real
+ * student without calling back to the Darsak API on every page.
+ */
+interface DarsakProfile {
+  name?: string;
+  email?: string;
+}
+
+function readProfile(payload: DarsakPayload): DarsakProfile {
+  const profile: DarsakProfile = {};
+  if (typeof payload.name === 'string' && payload.name.trim()) {
+    profile.name = payload.name.trim().slice(0, 80);
+  }
+  if (typeof payload.email === 'string' && /^[^@\s]+@[^@\s]+$/.test(payload.email)) {
+    profile.email = payload.email.trim().slice(0, 160);
+  }
+  return profile;
+}
+
 function secretKey(): Uint8Array {
   const secret = process.env.DARSAK_HOST_JWT_SECRET;
   if (!secret || secret.length < 32) {
@@ -89,8 +110,12 @@ function sessionCookieToken(req: { headers: Headers }): string | undefined {
   return match?.[1];
 }
 
-async function mintSessionCookie(sub: string): Promise<string> {
-  const token = await new SignJWT({ kind: 'darsak-owner-session' })
+async function mintSessionCookie(sub: string, profile: DarsakProfile = {}): Promise<string> {
+  const token = await new SignJWT({
+    kind: 'darsak-owner-session',
+    ...(profile.name ? { name: profile.name } : {}),
+    ...(profile.email ? { email: profile.email } : {}),
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer(ISSUER)
     .setAudience(SESSION_AUDIENCE)
@@ -112,7 +137,10 @@ async function mintSessionCookie(sub: string): Promise<string> {
     .join('; ');
 }
 
-function verifyToken(token: string, audience: string): Promise<{ sub: string }> {
+function verifyToken(
+  token: string,
+  audience: string,
+): Promise<{ sub: string; profile: DarsakProfile }> {
   return (async () => {
     let payload: DarsakPayload;
     try {
@@ -125,14 +153,14 @@ function verifyToken(token: string, audience: string): Promise<{ sub: string }> 
       payload = verified.payload as DarsakPayload;
     } catch (error) {
       if (TOKEN_ERRORS.some((type) => error instanceof type)) {
-        return { sub: '' };
+        return { sub: '', profile: {} };
       }
       throw error;
     }
-    if (!audienceMatches(payload, audience)) return { sub: '' };
+    if (!audienceMatches(payload, audience)) return { sub: '', profile: {} };
     const sub = typeof payload.sub === 'string' ? payload.sub : '';
-    if (!sub || !/^[A-Za-z0-9_:-]{1,128}$/.test(sub)) return { sub: '' };
-    return { sub };
+    if (!sub || !/^[A-Za-z0-9_:-]{1,128}$/.test(sub)) return { sub: '', profile: {} };
+    return { sub, profile: readProfile(payload) };
   })();
 }
 
@@ -161,7 +189,7 @@ export const darsakJwtMethod: OwnerAuthMethod = {
           },
           // Refresh the sliding window when the handoff comes alongside it.
           ...(assertion !== undefined
-            ? { setCookies: [await mintSessionCookie(verified.sub)] }
+            ? { setCookies: [await mintSessionCookie(verified.sub, verified.profile)] }
             : {}),
         };
       }
@@ -181,7 +209,7 @@ export const darsakJwtMethod: OwnerAuthMethod = {
             assurance: 'verified',
             channel: 'darsak-handoff',
           },
-          setCookies: [await mintSessionCookie(verified.sub)],
+          setCookies: [await mintSessionCookie(verified.sub, verified.profile)],
         };
       }
       return { status: 'invalid', reason: 'bad darsak assertion' };
@@ -216,3 +244,19 @@ export const darsakJwtMethod: OwnerAuthMethod = {
       ? { kind: 'user', roles: new Set(['course:publish']) }
       : undefined,
 };
+
+/**
+ * The signed-in Darsak profile carried by the session cookie, for the shell's
+ * profile card (name + email). Darsak accounts live in the landing app; the
+ * handoff assertion is the only thing that crosses over, and from then on it
+ * stays inside this signed cookie — no call back to the Darsak API per page.
+ */
+export async function readDarsakProfile(
+  headers: Headers,
+): Promise<{ ownerId: string; kind: 'user'; name?: string; email?: string } | null> {
+  const token = sessionCookieToken({ headers });
+  if (token === undefined) return null;
+  const verified = await verifyToken(token, SESSION_AUDIENCE);
+  if (!verified.sub) return null;
+  return { ownerId: `user:${verified.sub}`, kind: 'user', ...verified.profile };
+}

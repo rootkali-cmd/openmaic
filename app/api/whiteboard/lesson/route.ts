@@ -32,6 +32,8 @@ interface LessonRequest {
   /** Recent question/title pairs, for conversational follow-ups. */
   history?: { question: string; title: string }[];
   locale?: string;
+  /** Photo/screenshot attached by the student; the teaching model reads it. */
+  image?: { dataUrl: string; name?: string };
 }
 
 const SYSTEM_PROMPT = `أنت مدرس عربي على "سبورة دارس" — سبورة ذكية يكتب ويرسم عليها المدرس بيده بينما يشرح بصوته.
@@ -100,6 +102,21 @@ const EXAMPLE = `مثال (اتبع نفس الأسلوب، وغيّر المح�
    {"op":"TEXT","x":120,"y":620,"text":"السفينة: حديد + هوا = كثافة أقل من الماء","size":26,"color":"#3D315E"}]}
 ]}`;
 
+const DATA_IMAGE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/;
+
+/** Only a real inline image, bounded so the route body stays sane. */
+function cleanImage(raw: LessonRequest['image']): { dataUrl: string; name?: string } | null {
+  if (!raw || typeof raw.dataUrl !== 'string') return null;
+  const dataUrl = raw.dataUrl.trim();
+  if (!DATA_IMAGE.test(dataUrl)) return null;
+  // ~6 MB of binary: enough for a phone photo, small enough for one request.
+  if (dataUrl.length > 8_000_000) return null;
+  return {
+    dataUrl,
+    name: typeof raw.name === 'string' ? raw.name.slice(0, 80) : undefined,
+  };
+}
+
 export async function POST(req: NextRequest) {
   let body: LessonRequest;
   try {
@@ -108,12 +125,19 @@ export async function POST(req: NextRequest) {
     return apiError('INVALID_REQUEST', 400, 'invalid JSON body');
   }
 
-  const question = body.question?.trim();
-  const questionSnippet = question?.substring(0, 60);
-
-  if (!question || question.length > 600) {
+  const rawQuestion = body.question?.trim() ?? '';
+  const image = body.image ? cleanImage(body.image) : null;
+  if (body.image && !image) {
+    return apiError('INVALID_REQUEST', 400, 'image must be a data:image URL under 8MB');
+  }
+  if (!rawQuestion && !image) {
     return apiError('INVALID_REQUEST', 400, 'question must be 1-600 characters');
   }
+  if (rawQuestion.length > 600) {
+    return apiError('INVALID_REQUEST', 400, 'question must be 1-600 characters');
+  }
+  const question = rawQuestion || 'اشرح المسألة أو الرسم الموجود في الصورة خطوة بخطوة.';
+  const questionSnippet = question.substring(0, 60);
 
   try {
     const { model, serverManaged } = await resolveModelFromRequest(
@@ -131,6 +155,7 @@ export async function POST(req: NextRequest) {
       existingBounds: body.existingBounds ?? null,
       history: body.history ?? [],
       questionSnippet,
+      image,
       params: { model, serverManaged },
     });
     return apiSuccess({ jobId }, 202);
@@ -155,6 +180,7 @@ interface GenerateContext {
   existingBounds: LessonRequest['existingBounds'];
   history: NonNullable<LessonRequest['history']>;
   questionSnippet?: string;
+  image?: { dataUrl: string; name?: string } | null;
   params: {
     model: Parameters<typeof callLLM>[0]['model'];
     serverManaged: boolean;
@@ -162,7 +188,14 @@ interface GenerateContext {
 }
 
 async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void> {
-  const { question, existingBounds: bounds, history, questionSnippet, params } = ctx;
+  const {
+    question,
+    existingBounds: bounds,
+    history,
+    questionSnippet,
+    image,
+    params,
+  } = ctx;
   try {
     // Placement guidance: the board layout is computed on the server (see
     // layoutBeats), so the model is told what is already on the paper and
@@ -189,7 +222,11 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
       EXAMPLE,
     );
 
-    const prompt = `${historyContext}سؤال الطالب: ${question}\n\nأعد الدرس JSON الآن.`;
+    const prompt = `${historyContext}${
+      image
+        ? `الصورة المرفقة فيها السؤال أو الرسم أو المعادلة. اقرأ محتواها بدقة وابنِ الدرس على اللي فيها بالتحديد، مش على كلام عام.\n\n`
+        : ''
+    }سؤال الطالب: ${question}\n\nأعد الدرس JSON الآن.`;
 
     // The teaching model occasionally spends its entire output budget on
     // hidden reasoning and returns an empty body (finishReason "length").
@@ -205,7 +242,19 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
         {
           model,
           system,
-          prompt,
+          ...(image
+            ? {
+                messages: [
+                  {
+                    role: 'user' as const,
+                    content: [
+                      { type: 'text' as const, text: prompt },
+                      { type: 'image' as const, image: image.dataUrl },
+                    ],
+                  },
+                ],
+              }
+            : { prompt }),
           maxOutputTokens,
           abortSignal: signal,
         },
@@ -233,13 +282,14 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
 
     // Racing a second provider is what turns a stalled provider into a slow
     // answer instead of no answer. It is optional: without a key the primary
-    // model simply gets a second attempt of its own.
+    // model simply gets a second attempt of its own. The hedge model reads
+    // text only, so an attached image stays on the vision-capable primary.
     const altId = (
       process.env.WHITEBOARD_HEDGE_MODEL ?? 'openrouter:deepseek/deepseek-v4-flash-0731'
     ).trim();
     const altKey = process.env.OPENROUTER_API_KEY?.trim();
     let altModel: typeof params.model | null = null;
-    if (altKey && altId) {
+    if (!image && altKey && altId) {
       try {
         const { providerId, modelId } = parseModelString(altId);
         altModel = getModel({ providerId, modelId, apiKey: altKey }).model;

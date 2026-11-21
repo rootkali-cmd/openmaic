@@ -3243,7 +3243,7 @@
     },
     "pro": {
       "title": "Darsak Pro",
-      "blurb": "Unlimited lessons and smarter voices — coming soon."
+      "blurb": "Unlimited lessons and smarter voices — compare plans."
     },
     "guest": {
       "name": "Guest",
@@ -3308,11 +3308,30 @@
     },
     "pro": {
       "title": "Darsak Pro",
-      "blurb": "Unlimited lessons and smarter voices — coming soon."
+      "blurb": "Unlimited lessons and smarter voices — compare plans.",
+      "cta": "See plans →"
     },
     "guest": {
       "name": "Guest",
       "hint": "Sign in to save your lessons"
+    },
+    "focus": {
+      "title": "Focus timer",
+      "sub": "Pick a length and start a distraction-free session.",
+      "minuteShort": "m",
+      "minutes": "minutes",
+      "less": "Less",
+      "more": "More",
+      "start": "Start focusing",
+      "pause": "Pause",
+      "resume": "Resume",
+      "reset": "Reset",
+      "finish": "End session",
+      "done": "Focus session complete — take a short break.",
+      "stopped": "Saved the time you studied.",
+      "remaining": "remaining",
+      "ready": "Ready when you are",
+      "minHint": "Minimum session is 10 minutes."
     }
   },
   "tutor": {

@@ -10,19 +10,19 @@
  */
 import {
   ArrowUp,
-  BookOpen,
   FileText,
   GraduationCap,
   ImagePlus,
   ListChecks,
   PenLine,
-  Youtube,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { AppShell } from '@/components/shell/app-shell';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { addLesson } from '@/lib/study-data';
 import { requestLesson } from '@/lib/whiteboard-engine/lesson-client';
 
 interface ChatMessage {
@@ -82,6 +82,11 @@ export default function TutorPage() {
           ...current,
           { id: nextId.current, role: 'assistant', text: answer, question },
         ]);
+        addLesson({
+          question,
+          title: data.title?.trim() || question,
+          summary: answer.slice(0, 160),
+        });
       } catch {
         nextId.current += 1;
         setMessages((current) => [
@@ -104,7 +109,7 @@ export default function TutorPage() {
     [router, value],
   );
 
-  const chips: { key: string; icon: ReactNode; disabled?: boolean }[] = [
+  const chips: { key: string; icon: ReactNode; href?: string }[] = [
     {
       key: 'tutor.boardChip',
       icon: <GraduationCap className="size-4 text-[#9178E6]" aria-hidden />,
@@ -112,27 +117,17 @@ export default function TutorPage() {
     {
       key: 'tutor.upload',
       icon: <ImagePlus className="size-4 text-[#5FA0FC]" aria-hidden />,
-      disabled: true,
-    },
-    {
-      key: 'tutor.youtube',
-      icon: <Youtube className="size-4 text-[#FB7E5B]" aria-hidden />,
-      disabled: true,
+      href: '/whiteboard',
     },
     {
       key: 'tutor.notes',
       icon: <FileText className="size-4 text-[#00C386]" aria-hidden />,
-      disabled: true,
+      href: '/plans',
     },
     {
       key: 'tutor.quiz',
       icon: <ListChecks className="size-4 text-[#E879C0]" aria-hidden />,
-      disabled: true,
-    },
-    {
-      key: 'tutor.flashcards',
-      icon: <BookOpen className="size-4 text-[#FFD84D]" aria-hidden />,
-      disabled: true,
+      href: '/tests',
     },
   ];
 
@@ -171,27 +166,23 @@ export default function TutorPage() {
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {chips.map((chip) => {
             const label = t(chip.key);
-            const enabled = !chip.disabled;
-            return (
+            const className =
+              'flex items-center gap-2 rounded-full border border-[#9178E6]/40 bg-[#9178E6]/12 px-3.5 py-2 text-[12px] font-semibold text-white transition hover:border-[#9178E6]/70 hover:bg-[#9178E6]/20';
+            return chip.href ? (
+              <Link key={chip.key} href={chip.href} className={className}>
+                {chip.icon}
+                {label}
+              </Link>
+            ) : (
               <button
                 key={chip.key}
                 type="button"
-                disabled={chip.disabled}
-                onClick={enabled ? () => openBoard() : undefined}
-                title={enabled ? label : `${label} · ${t('shell.soon')}`}
-                className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-semibold transition ${
-                  enabled
-                    ? 'border-[#9178E6]/40 bg-[#9178E6]/12 text-white hover:border-[#9178E6]/70 hover:bg-[#9178E6]/20'
-                    : 'border-white/[0.08] bg-white/[0.04] text-white/45'
-                }`}
+                onClick={() => openBoard()}
+                aria-label={label}
+                className={className}
               >
                 {chip.icon}
                 {label}
-                {chip.disabled ? (
-                  <span className="rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[9px] text-white/40">
-                    {t('shell.soon')}
-                  </span>
-                ) : null}
               </button>
             );
           })}

@@ -3220,5 +3220,171 @@
       },
       "close": "Đóng hướng dẫn"
     }
+  },
+  "shell": {
+    "pro": {
+      "cta": "See plans →",
+      "title": "Darsak Pro",
+      "blurb": "Unlimited lessons and smarter voices — compare plans."
+    },
+    "focus": {
+      "title": "Focus timer",
+      "sub": "Pick a length and start a distraction-free session.",
+      "minuteShort": "m",
+      "minutes": "minutes",
+      "less": "Less",
+      "more": "More",
+      "start": "Start focusing",
+      "pause": "Pause",
+      "resume": "Resume",
+      "reset": "Reset",
+      "finish": "End session",
+      "done": "Focus session complete — take a short break.",
+      "stopped": "Saved the time you studied.",
+      "remaining": "remaining",
+      "ready": "Ready when you are",
+      "minHint": "Minimum session is 10 minutes."
+    },
+    "nav": {
+      "tutor": "Tutor",
+      "board": "Smart Whiteboard",
+      "courses": "My Courses",
+      "search": "Search",
+      "plans": "Study Plans",
+      "tests": "Tests",
+      "leaderboard": "Leaderboard"
+    },
+    "home": "Home",
+    "nav_label": "Sections",
+    "soon": "Soon",
+    "timer": {
+      "title": "Study timer"
+    },
+    "guest": {
+      "name": "Guest",
+      "hint": "Sign in to save your lessons"
+    }
+  },
+  "wb": {
+    "back": "Back",
+    "title": "Smart Whiteboard",
+    "soon": "Soon",
+    "stop": "Stop lesson",
+    "undo": "Undo",
+    "redo": "Redo",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit board",
+    "clearBoard": "Clear board",
+    "deleteElement": "Delete element",
+    "nav": {
+      "classes": "My Classes",
+      "board": "Smart Whiteboard",
+      "search": "Search",
+      "plans": "Study Plans",
+      "tests": "Tests",
+      "leaderboard": "Leaderboard"
+    },
+    "pro": {
+      "title": "Darsak Pro",
+      "blurb": "Unlimited lessons and smarter voices — compare plans."
+    },
+    "guest": {
+      "name": "Guest",
+      "hint": "Sign in to save your lessons"
+    },
+    "status": {
+      "idle": "Ready",
+      "loading": "Preparing the lesson…",
+      "playing": "Tutor is teaching",
+      "paused": "Lesson paused",
+      "done": "Lesson finished",
+      "muted": "Voice muted"
+    },
+    "teacher": {
+      "name": "Darsak Tutor"
+    },
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "pause": "Pause",
+    "resume": "Resume",
+    "followOn": "Follow the tutor",
+    "followOff": "Stop following",
+    "placeholder": "Ask me anything…",
+    "listening": "Listening… go ahead",
+    "send": "Send",
+    "thinking": "Preparing your lesson…",
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "mic": "Speak",
+    "micStop": "Stop recording",
+    "voiceOn": "Voice replies on",
+    "voiceOff": "Voice replies off",
+    "attach": "Attach image",
+    "attachSoon": "Image attachment coming soon",
+    "empty": {
+      "title": "Ask me anything… and I'll draw it right here",
+      "hint": "The tutor speaks while writing on the board, in the same moment. Type your question below, or tap the mic and ask out loud."
+    },
+    "example": {
+      "1": "Explain Newton's second law",
+      "2": "Draw the water cycle",
+      "3": "Explain photosynthesis"
+    },
+    "penLabel": "Darsak",
+    "loadingHint": "Writing on the board in a moment",
+    "loadingSlow": "Still thinking — the lesson is on its way"
+  },
+  "tutor": {
+    "greeting": "Ready to learn something new today?",
+    "greetingMorning": "Good morning! Ready to start?",
+    "greetingEvening": "Good evening! Ready to review?",
+    "subtitle": "Ask me anything and I'll answer right here. Want to watch it drawn out? Tap \"Explain on the whiteboard\".",
+    "placeholder": "Ask me anything…",
+    "send": "Send",
+    "boardChip": "Explain on the board",
+    "upload": "Upload",
+    "youtube": "YouTube",
+    "notes": "Notes",
+    "quiz": "Quiz",
+    "flashcards": "Flashcards",
+    "soonHint": "More tools are coming — chat answers and the whiteboard work today.",
+    "thinking": "Darsak is writing…",
+    "answerError": "Sorry, I couldn't reach the teacher. Try again, or open it on the whiteboard.",
+    "openBoard": "Watch it explained on the whiteboard",
+    "teacher": "Darsak",
+    "you": "You"
+  },
+  "sections": {
+    "search": {
+      "title": "Search",
+      "placeholder": "Find study notes, quizzes and more…",
+      "filter": "Filter",
+      "trending": "Trending",
+      "trend1": "Physics",
+      "trend2": "Organic Chemistry",
+      "trend3": "Calculus",
+      "trend4": "Grammar"
+    },
+    "plans": {
+      "title": "Study Plans",
+      "headline": "Ready by exam day",
+      "sub": "We'll map out exactly what to study and when, all the way to exam day.",
+      "cta": "Create Study Plan",
+      "action": "Create plan"
+    },
+    "tests": {
+      "title": "Tests",
+      "headline": "Mock exams",
+      "sub": "Test yourself before the real exam and see exactly where you stand.",
+      "cta": "Start a test",
+      "how": "How does it work?",
+      "action": "Generate test"
+    },
+    "leaderboard": {
+      "title": "Leaderboard",
+      "headline": "Earn points to participate",
+      "sub": "Every lesson you finish earns points that move you up the board.",
+      "cta": "Earn points"
+    }
   }
 }

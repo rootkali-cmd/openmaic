@@ -26,10 +26,10 @@ export const SHELL_NAV_ITEMS: ShellNavItem[] = [
   { key: 'tutor', icon: MessageSquare, href: '/tutor' },
   { key: 'board', icon: PenLine, href: '/whiteboard' },
   { key: 'courses', icon: BookOpen, href: '/' },
-  { key: 'search', icon: Search },
-  { key: 'plans', icon: Target },
-  { key: 'tests', icon: FlaskConical },
-  { key: 'leaderboard', icon: Trophy },
+  { key: 'search', icon: Search, href: '/search' },
+  { key: 'plans', icon: Target, href: '/plans' },
+  { key: 'tests', icon: FlaskConical, href: '/tests' },
+  { key: 'leaderboard', icon: Trophy, href: '/leaderboard' },
 ];
 
 /** Highlights the nav item whose route prefix matches the pathname. */

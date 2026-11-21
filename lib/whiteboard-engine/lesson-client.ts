@@ -13,6 +13,8 @@ export interface LessonInput {
   existingBounds?: { x: number; y: number; w: number; h: number } | null;
   history?: { question: string; title: string }[];
   locale?: string;
+  /** A photo/screenshot the student attached (data URL, downscaled client-side). */
+  image?: { dataUrl: string; name?: string };
 }
 
 export interface LessonResult {
