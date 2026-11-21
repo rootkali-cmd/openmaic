@@ -104,3 +104,8 @@ render-service/.owner-bound-parent-*/
 
 # Generated interactive libraries
 /public/vendor/interactive
+
+# local live-verification artifacts (screenshots + one-off playwright runs)
+/.verify
+/verify-live.mjs
+/verify-live2.mjs
