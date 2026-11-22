@@ -13,11 +13,7 @@ import { NextRequest } from 'next/server';
 import { callLLM } from '@/lib/ai/llm';
 import { getModel, parseModelString } from '@/lib/ai/providers';
 import { createLogger } from '@/lib/logger';
-import {
-  apiError,
-  apiSuccess,
-  modelAuthorizationResponse,
-} from '@/lib/server/api-response';
+import { apiError, apiSuccess, modelAuthorizationResponse } from '@/lib/server/api-response';
 import { createLessonJob, finishLessonJob, readLessonJob } from '@/lib/server/lesson-jobs';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { BOARD_HEIGHT, BOARD_WIDTH } from '@/lib/whiteboard-engine/dsl';
@@ -54,9 +50,11 @@ const SYSTEM_PROMPT = `أنت مدرس عربي على "سبورة دارس" —
 - كل خطوة فيها من عنصر واحد إلى 3 عناصر، وارتفاعها الكلي لا يزيد عن 240px.
 - ممنوع أكثر من شكل واحد (RECTANGLE / CIRCLE / FLOWCHART / TABLE) في الخطوة الواحدة.
 - الشكل له وظيفة فقط: تحويط مثال، سهم بين سبب ونتيجة، جدول مقارنة من صفين أو ثلاثة، أو مخطط من 3 عقد بحد أقصى.
+- أي RECTANGLE أو CIRCLE لازم يكون له label مفيد أو يحتوي سطر TEXT جواه؛ الشكل الفاضي بيتشال تلقائياً ومش بيظهر.
 - ممنوع الرسم الزينة: ممنوع مستطيل أو دائرة بدون label أو بدون وظيفة واضحة، وممنوع تعبئة لون خلفية أو شريط ملوّن تحت الدرس.
 - التأكيد بـ HIGHLIGHT بالـ target فقط و mode "underline" على عنصر له id؛ ممنوع region wash/box (بتطلع مستطيلات في غير مكانها).
 - التخطيط النهائي يُرتّب تلقائياً من فوق لتحت، فضع عناصر الخطوة الواحدة متقاربة، ولا تحاول ملء السبورة.
+- أي عملية أو خطوات أو خوارزمية: ابدأ بخريطة/روود ماب في أول خطوة (FLOWCHART من 3 عقد، أو 3 أسطر TEXT مرقمة: 1 ثم 2 ثم 3)، وبعدها ادخل في التفاصيل. ممنوع تبدأ بالكود أو بالتفاصيل على طول.
 - لونان فقط: الحبر الداكن #3D315E للشرح، ولون واحد للتأكيد (#FFD84D أو #5B3FC7).
 
 نظام الإحداثيات: السبورة بعرض ${BOARD_WIDTH} وارتفاع ${BOARD_HEIGHT}، الصفر في الزاوية العليا اليسرى.
@@ -90,7 +88,9 @@ ${'${PLACEMENT}'}
 
 قواعد دروس البرمجة (لما السؤال فيه كود أو لغة برمجة أو سؤال عن برنامج):
 - افصل الكود عن العربي تماماً: كل سطر كود في أمر CODE لوحده على سطر مستقل، وأي شرح عربي في TEXT في سطر تاني (فوقه أو تحته). ممنوع خلط كود وعربي في نفس الأمر أو نفس السطر.
-- الكود بالإنجليزي LTR: الأسماء والرموز إنجليزي. لو البرنامج بيطبع جملة عربية، خليها في CODE لوحدها بـ tone:"output" (أو tone:"input" لو هي مُدخل)، والشرح العربي يبقى في speech و TEXT منفصل.
+- ممنوع سطر جديد أو أكثر من سطر داخل أمر CODE؛ لو عندك 3 أسطر كود اكتب 3 أوامر CODE منفصلة.
+- الكود بالإنجليزي LTR: الأسماء والرموز إنجليزي. ممنوع أي حرف عربي داخل CODE (لا في اسم متغير ولا تعليق) إلا لو البرنامج بيطبع جملة عربية، وساعتها حطها لوحدها في CODE بـ tone:"output".
+- لو البرنامج بيطبع جملة عربية، خليها في CODE لوحدها بـ tone:"output" (أو tone:"input" لو هي مُدخل)، والشرح العربي يبقى في speech و TEXT منفصل.
 - لو السؤال عن برنامج أو عملية: ابدأ بـ roadmap في أول خطوتين: FLOWCHART من 3 عقد (المدخل → المعالجة → المخرج) أو 3 أسطر TEXT مرقمة، وبعدها ادخل في التفاصيل. ممنوع تقفز للكود على طول.
 - اشرح الكود سطر بسطر: كل خطوة فيها 1-3 أسطر CODE فقط، والـ speech يشرح وظيفة السطر ونتيجته بالعربي، وتحت الكود سطر TEXT عربي واحد (22-26px) يوضح "ليه السطر موجود".
 - وضّح المخرجات في CODE بـ tone:"output" (أو جدول صغير لو النتيجة متعددة).
@@ -124,16 +124,16 @@ const EXAMPLE = `مثال (اتبع نفس الأسلوب، وغيّر المح�
    {"op":"FLOWCHART","x":130,"y":240,"direction":"LR","nodes":[{"id":"a","kind":"stadium","label":"النص"},{"id":"b","kind":"rect","label":"تجهيز الطباعة"},{"id":"c","kind":"stadium","label":"الشاشة"}],"edges":[{"from":"a","to":"b"},{"from":"b","to":"c"}],"nodeW":150,"nodeH":60,"gap":56},
    {"op":"TEXT","x":130,"y":430,"text":"الخطة: النص → التجهيز → العرض","size":24}]},
  {"speech":"السطر الوحيد في البرنامج بيطلب من الدالة تطبع النص اللي بين القوسين، والفاصلة المنقوطة بتقفل السطر.","draws":[
-   {"op":"CODE","x":110,"y":240,"text":"print('هلا يا صاحبي')","size":24,"tone":"plain","lang":"python"},
+   {"op":"CODE","x":110,"y":240,"text":"print('Hello')","size":24,"tone":"plain","lang":"python"},
    {"op":"TEXT","x":110,"y":300,"text":"القوسين فيهما النص المطلوب طباعته","size":24},
    {"op":"TEXT","x":110,"y":350,"text":"وسطر الكود ينتهي بلا فاصلة منقوطة في بايثون","size":24}]},
  {"speech":"لما نشغّل البرنامج، اللي بين القوسين بيظهر على الشاشة زي ما هو.","draws":[
    {"op":"TEXT","x":110,"y":240,"text":"المُخرج على الشاشة:","size":24,"color":"#3D315E"},
-   {"op":"CODE","x":110,"y":310,"text":"هلا يا صاحبي","size":24,"tone":"output"}]},
+   {"op":"CODE","x":110,"y":310,"text":"Hello","size":24,"tone":"output"}]},
  {"speech":"وخد بالك من الأخطاء الشائعة: لو النص مش بين علامتي تنصيص، بايثون هيفتكره اسم متغير ومش هيطبعه.","draws":[
-   {"op":"CODE","x":110,"y":240,"text":"print(هلا يا صاحبي)","size":24,"tone":"plain"},
+   {"op":"CODE","x":110,"y":240,"text":"print(Hello)","size":24,"tone":"plain"},
    {"op":"TEXT","x":110,"y":300,"text":"غلط: النص محتاج علامات تنصيص","size":24,"color":"#FB7E5B"},
-   {"op":"CODE","x":110,"y":360,"text":"print('هلا يا صاحبي')","size":24,"tone":"plain"},
+   {"op":"CODE","x":110,"y":360,"text":"print('Hello')","size":24,"tone":"plain"},
    {"op":"TEXT","x":110,"y":420,"text":"صح: النص بين علامتي تنصيص","size":24,"color":"#00C386"}]}
 ]}`;
 
@@ -175,11 +175,7 @@ export async function POST(req: NextRequest) {
   const questionSnippet = question.substring(0, 60);
 
   try {
-    const { model, serverManaged } = await resolveModelFromRequest(
-      req,
-      body,
-      'whiteboard-lesson',
-    );
+    const { model, serverManaged } = await resolveModelFromRequest(req, body, 'whiteboard-lesson');
 
     // Answer immediately with a job id: the teaching model can take longer
     // than the platform's request ceiling, so the work continues in-process
@@ -223,14 +219,7 @@ interface GenerateContext {
 }
 
 async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void> {
-  const {
-    question,
-    existingBounds: bounds,
-    history,
-    questionSnippet,
-    image,
-    params,
-  } = ctx;
+  const { question, existingBounds: bounds, history, questionSnippet, image, params } = ctx;
   try {
     // Placement guidance: the board layout is computed on the server (see
     // layoutBeats), so the model is told what is already on the paper and
@@ -252,10 +241,7 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
     // lesson already written there, never on top of it.
     const layoutStartY = bounds && bounds.h > 0 ? bounds.y + bounds.h + 40 : undefined;
 
-    const system = SYSTEM_PROMPT.replace('${PLACEMENT}', placement).replace(
-      '${EXAMPLE}',
-      EXAMPLE,
-    );
+    const system = SYSTEM_PROMPT.replace('${PLACEMENT}', placement).replace('${EXAMPLE}', EXAMPLE);
 
     const prompt = `${historyContext}${
       image
@@ -268,11 +254,7 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
     // Each attempt is bounded so two of them still fit inside the client's
     // wait; anything that stays unusable is reported honestly instead of
     // drawing a canned lesson that has nothing to do with the question.
-    const runModel = (
-      maxOutputTokens: number,
-      signal: AbortSignal,
-      model = params.model,
-    ) =>
+    const runModel = (maxOutputTokens: number, signal: AbortSignal, model = params.model) =>
       callLLM(
         {
           model,
@@ -425,9 +407,7 @@ async function generateLesson(jobId: string, ctx: GenerateContext): Promise<void
       return;
     }
 
-    log.warn(
-      `Model reply unparseable after every attempt [q="${questionSnippet}..."]`,
-    );
+    log.warn(`Model reply unparseable after every attempt [q="${questionSnippet}..."]`);
     finishLessonJob(jobId, {
       status: 'failed',
       code: 'LESSON_UNPARSEABLE',

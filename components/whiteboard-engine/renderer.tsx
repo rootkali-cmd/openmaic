@@ -21,6 +21,7 @@ import {
   BOARD_WIDTH,
   PALETTE,
   commandBBox,
+  estimateTextWidth,
   type BBox,
   type DrawCommand,
 } from '@/lib/whiteboard-engine/dsl';
@@ -38,6 +39,37 @@ const INK = PALETTE.ink;
 const PURPLE = PALETTE.purple;
 const VIOLET = PALETTE.violet;
 const YELLOW = PALETTE.yellow;
+
+const ARABIC_LETTER = /[\u0600-\u06FF]/;
+
+/**
+ * Text geometry for one TEXT run.
+ *
+ * The layout pass authors `x` as the run's left edge for `anchor:"start"` and
+ * measures the box left-to-right. Arabic must still be laid out right-to-left
+ * (otherwise punctuation and arrows at the edges jump), so an RTL run is
+ * pinned by its other edge instead of flipping the box: start becomes
+ * `text-anchor:end` at `x + width`, end becomes `start` at `x - width`.
+ * Without this swap the bidi layout and the computed bbox disagree and lines
+ * drift into each other.
+ */
+function textRun(cmd: Extract<DrawCommand, { op: 'TEXT' }>): {
+  x: number;
+  anchor: 'start' | 'middle' | 'end';
+  direction: 'ltr' | 'rtl';
+} {
+  if (!ARABIC_LETTER.test(cmd.text)) {
+    return { x: cmd.x, anchor: cmd.anchor, direction: 'ltr' };
+  }
+  const width = estimateTextWidth(cmd.text, cmd.size);
+  if (cmd.anchor === 'middle') {
+    return { x: cmd.x, anchor: 'middle', direction: 'rtl' };
+  }
+  if (cmd.anchor === 'end') {
+    return { x: cmd.x - width, anchor: 'start', direction: 'rtl' };
+  }
+  return { x: cmd.x + width, anchor: 'end', direction: 'rtl' };
+}
 
 const BOARD_FONT = "'Caveat', 'Aref Ruqaa', 'Cairo', sans-serif";
 /* Calligraphic Ruqaa falls apart below heading size: labels, table cells and
@@ -233,18 +265,16 @@ function StrokePath({
       strokeLinecap="round"
       strokeLinejoin="round"
       pathLength={1}
-      strokeDasharray={style === 'solid' ? undefined : style === 'dashed' ? '0.06 0.04' : '0.02 0.05'}
+      strokeDasharray={
+        style === 'solid' ? undefined : style === 'dashed' ? '0.06 0.04' : '0.02 0.05'
+      }
       className={style === 'solid' ? className : undefined}
     />
   );
 }
 
 /* ── Per-command renderers ────────────────────────────────────────── */
-function renderCommand(
-  cmd: DrawCommand,
-  elements: BoardElement[],
-  key: string,
-): React.ReactNode {
+function renderCommand(cmd: DrawCommand, elements: BoardElement[], key: string): React.ReactNode {
   switch (cmd.op) {
     case 'TEXT':
       return (
@@ -256,18 +286,27 @@ function renderCommand(
         >
           {/* rotation lives on an inner plain <g>: motion owns the wrapper's transform */}
           <g transform={cmd.rotate ? `rotate(${cmd.rotate} ${cmd.x} ${cmd.y})` : undefined}>
-            <text
-              x={cmd.x}
-              y={cmd.y}
-              fill={cmd.color ?? INK}
-              fontSize={cmd.size}
-              fontWeight={cmd.weight}
-              textAnchor={cmd.anchor}
-              className="wb-ink-text"
-              style={{ direction: 'ltr', fontFamily: boardFont(cmd.size) }}
-            >
-              {cmd.text}
-            </text>
+            {(() => {
+              const run = textRun(cmd);
+              return (
+                <text
+                  x={run.x}
+                  y={cmd.y}
+                  fill={cmd.color ?? INK}
+                  fontSize={cmd.size}
+                  fontWeight={cmd.weight}
+                  textAnchor={run.anchor}
+                  className="wb-ink-text"
+                  style={{
+                    direction: run.direction,
+                    unicodeBidi: 'isolate',
+                    fontFamily: boardFont(cmd.size),
+                  }}
+                >
+                  {cmd.text}
+                </text>
+              );
+            })()}
           </g>
         </motion.g>
       );
@@ -390,12 +429,7 @@ function renderCommand(
           exit={{ opacity: 0, transition: { duration: 0.2 } }}
           transition={{ duration: 0.15 }}
         >
-          <StrokePath
-            d={d}
-            color={cmd.color ?? INK}
-            width={cmd.width}
-            style={cmd.style}
-          />
+          <StrokePath d={d} color={cmd.color ?? INK} width={cmd.width} style={cmd.style} />
           <path
             d={handArrowHead(cmd.x2, cmd.y2, cmd.x1, cmd.y1, headSize, `${key}a`)}
             fill="none"
@@ -597,14 +631,7 @@ function renderCommand(
         return (
           <g key={node.id}>
             {shape}
-            <TextLines
-              lines={lines}
-              x={cx}
-              y={cy}
-              size={14}
-              fill={INK}
-              weight={700}
-            />
+            <TextLines lines={lines} x={cx} y={cy} size={14} fill={INK} weight={700} />
           </g>
         );
       });
@@ -739,7 +766,12 @@ function renderCommand(
 
       if (cmd.mode === 'wash') {
         return (
-          <motion.g key={key} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.g
+            key={key}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <rect
               x={region.x - 6}
               y={region.y - 3}
@@ -755,7 +787,12 @@ function renderCommand(
       }
       if (cmd.mode === 'circle') {
         return (
-          <motion.g key={key} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.g
+            key={key}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <path
               d={handEllipse(
                 region.x + region.w / 2,
@@ -775,7 +812,12 @@ function renderCommand(
       }
       if (cmd.mode === 'box') {
         return (
-          <motion.g key={key} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.g
+            key={key}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <path
               d={handRect(region.x - 8, region.y - 6, region.w + 16, region.h + 12, key)}
               fill="none"

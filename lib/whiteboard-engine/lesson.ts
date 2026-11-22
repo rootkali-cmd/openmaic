@@ -7,13 +7,7 @@
  * accumulated DrawCommands.
  */
 import { z } from 'zod';
-import {
-  BOARD_WIDTH,
-  commandBBox,
-  parseDrawCommands,
-  type BBox,
-  type DrawCommand,
-} from './dsl';
+import { BOARD_WIDTH, commandBBox, parseDrawCommands, type BBox, type DrawCommand } from './dsl';
 
 const beatSchema = z.object({
   /** The sentence the teacher says out loud (Modern Standard Arabic). */
@@ -93,10 +87,7 @@ function isTextLike(cmd: DrawCommand): boolean {
 
 function boxesOverlap(a: BBox, b: BBox, pad: number): boolean {
   return (
-    a.x < b.x + b.w + pad &&
-    a.x + a.w + pad > b.x &&
-    a.y < b.y + b.h + pad &&
-    a.y + a.h + pad > b.y
+    a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y
   );
 }
 
@@ -113,7 +104,8 @@ function separateTextRows(draws: DrawCommand[]): DrawCommand[] {
   for (let index = 0; index < out.length; index += 1) {
     const cmd = out[index];
     if (!isTextLike(cmd)) continue;
-    let box = commandBBox(cmd);
+    let current = cmd;
+    let box = commandBBox(current);
     if (!box) continue;
 
     let guard = 0;
@@ -121,9 +113,12 @@ function separateTextRows(draws: DrawCommand[]): DrawCommand[] {
       guard += 1;
       const hit = placed.find((other) => boxesOverlap(other, box as BBox, 6));
       if (!hit) break;
-      const shifted = shiftCommand(cmd, 0, Math.ceil(hit.y + hit.h + 8 - box.y));
-      out[index] = shifted;
-      const next = commandBBox(shifted);
+      // Shift from the command's CURRENT position: shifting the original
+      // each pass made a line bounce between two rows instead of clearing
+      // both, which is exactly how rows ended up stacked on each other.
+      current = shiftCommand(current, 0, Math.ceil(hit.y + hit.h + 8 - box.y));
+      out[index] = current;
+      const next = commandBBox(current);
       if (!next) break;
       box = next;
     }
@@ -219,6 +214,32 @@ function normalizeDrawCommand(cmd: DrawCommand): DrawCommand | null {
     return cmd;
   }
 
+  if (cmd.op === 'CODE') {
+    const text = cmd.text.replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim();
+    if (!text) return null;
+    // Arabic prose belongs in TEXT, not in the code face. Program output is
+    // the one exception: printing an Arabic string is real program behaviour.
+    // A line that mixes Arabic with latin code (e.g. print('مرحبا')) stays
+    // CODE and is rendered as one LTR run, so the quotes stay around it.
+    const hasArabic = /[\u0600-\u06FF]/.test(text);
+    const hasLatin = /[A-Za-z]/.test(text);
+    if (hasArabic && !hasLatin && cmd.tone !== 'output') {
+      return {
+        op: 'TEXT',
+        ...(cmd.id ? { id: cmd.id } : {}),
+        x: cmd.x,
+        y: cmd.y,
+        text,
+        size: Math.min(30, Math.max(16, cmd.size)),
+        weight: 400,
+        anchor: 'start',
+        rotate: 0,
+        ...(cmd.color ? { color: cmd.color } : {}),
+      };
+    }
+    return { ...cmd, text };
+  }
+
   if (cmd.op === 'TEXT') {
     const hasArabic = /[\u0600-\u06FF]/.test(cmd.text);
     const hasCode = CODEISH.test(cmd.text);
@@ -247,6 +268,71 @@ function normalizeDrawCommand(cmd: DrawCommand): DrawCommand | null {
   }
 
   return cmd;
+}
+
+/**
+ * One CODE command per physical line: models sometimes pack a whole snippet
+ * into one string with `\n`, which a single SVG <text> cannot break. Splitting
+ * here also guarantees the "code line lives on its own line" rule even when
+ * the model ignores it.
+ */
+function explodeCodeLines(draws: DrawCommand[]): DrawCommand[] {
+  const out: DrawCommand[] = [];
+  for (const cmd of draws) {
+    if (cmd.op !== 'CODE' || !/[\r\n]/.test(cmd.text)) {
+      out.push(cmd);
+      continue;
+    }
+    const lines = cmd.text
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\s+$/, ''))
+      .filter((line) => line.trim().length > 0)
+      .slice(0, 8);
+    if (lines.length === 0) continue;
+    const step = Math.ceil(cmd.size * 1.5) + 10;
+    lines.forEach((line, index) => {
+      out.push({
+        ...cmd,
+        ...(index > 0 ? { id: undefined } : {}),
+        text: line.slice(0, 240),
+        y: cmd.y + index * step,
+      });
+    });
+  }
+  return out;
+}
+
+/**
+ * A shape with no label that wraps no text is decoration: the model's habit
+ * of painting random rectangles/circles around the board is exactly what made
+ * lessons look broken. Shapes that label themselves, or that visibly contain
+ * a text/code/math line, are real diagrams and stay.
+ */
+function dropUnlabeledShapes(draws: DrawCommand[]): DrawCommand[] {
+  const textBoxes = draws
+    .filter((cmd) => cmd.op === 'TEXT' || cmd.op === 'CODE' || cmd.op === 'MATH')
+    .map((cmd) => commandBBox(cmd))
+    .filter((box): box is BBox => Boolean(box));
+
+  return draws.filter((cmd) => {
+    if (cmd.op !== 'RECTANGLE' && cmd.op !== 'CIRCLE') return true;
+    if (cmd.label?.trim()) return true;
+    const box = commandBBox(cmd);
+    if (!box) return false;
+
+    return textBoxes.some((text) => {
+      const centerX = text.x + text.w / 2;
+      const centerY = text.y + text.h / 2;
+      if (cmd.op === 'CIRCLE') {
+        const dx = centerX - cmd.cx;
+        const dy = centerY - cmd.cy;
+        return Math.hypot(dx, dy) <= cmd.r * 1.15;
+      }
+      return (
+        centerX >= cmd.x && centerX <= cmd.x + cmd.w && centerY >= cmd.y && centerY <= cmd.y + cmd.h
+      );
+    });
+  });
 }
 
 /**
@@ -304,9 +390,11 @@ export function parseLesson(input: unknown, options: LayoutOptions = {}): Parsed
       }
       draws.push(normalized);
     }
+    const cleaned = dropUnlabeledShapes(explodeCodeLines(draws));
+    dropped += draws.length - cleaned.length;
     const speech = beat.speech.trim();
-    if (!speech && draws.length === 0) return; // empty beat — skip
-    beats.push({ id: `b${index}`, speech, draws });
+    if (!speech && cleaned.length === 0) return; // empty beat — skip
+    beats.push({ id: `b${index}`, speech, draws: cleaned });
   });
 
   if (beats.length === 0) return null;
@@ -329,8 +417,22 @@ const FALLBACK_RAW = {
     {
       speech: 'هنتكلم النهارده عن قانون نيوتن الثاني لحركة الأجسام.',
       draws: [
-        { op: 'TEXT', x: 80, y: 90, text: 'قانون نيوتن الثاني', size: 44, weight: 700, color: '#3D315E', anchor: 'start' },
-        { op: 'HIGHLIGHT', region: { x: 70, y: 56, w: 430, h: 56 }, mode: 'wash', color: '#FFD84D' },
+        {
+          op: 'TEXT',
+          x: 80,
+          y: 90,
+          text: 'قانون نيوتن الثاني',
+          size: 44,
+          weight: 700,
+          color: '#3D315E',
+          anchor: 'start',
+        },
+        {
+          op: 'HIGHLIGHT',
+          region: { x: 70, y: 56, w: 430, h: 56 },
+          mode: 'wash',
+          color: '#FFD84D',
+        },
       ],
     },
     {
@@ -344,15 +446,50 @@ const FALLBACK_RAW = {
     {
       speech: 'لو زدنا التسارع زادت القوة، ولو زدنا الكتلة احتاجت قوة أكبر.',
       draws: [
-        { op: 'RECTANGLE', x: 90, y: 330, w: 360, h: 150, rx: 18, stroke: '#5B3FC7', strokeWidth: 3, fill: 'none', label: 'كتلة أكبر ← تسارع أقل', labelSize: 22 },
-        { op: 'CIRCLE', cx: 700, cy: 405, r: 95, stroke: '#9178E6', strokeWidth: 3, fill: 'none', label: 'a = F / m', labelSize: 24 },
+        {
+          op: 'RECTANGLE',
+          x: 90,
+          y: 330,
+          w: 360,
+          h: 150,
+          rx: 18,
+          stroke: '#5B3FC7',
+          strokeWidth: 3,
+          fill: 'none',
+          label: 'كتلة أكبر ← تسارع أقل',
+          labelSize: 22,
+        },
+        {
+          op: 'CIRCLE',
+          cx: 700,
+          cy: 405,
+          r: 95,
+          stroke: '#9178E6',
+          strokeWidth: 3,
+          fill: 'none',
+          label: 'a = F / m',
+          labelSize: 24,
+        },
         { op: 'LINE', x1: 470, y1: 405, x2: 590, y2: 405, color: '#FFD84D', width: 5 },
       ],
     },
     {
       speech: 'وبكده نقدر نحسب أي قوة لو عرفنا الكتلة والتسارع.',
       draws: [
-        { op: 'TABLE', id: 'b3t', x: 120, y: 545, headers: ['الكمية', 'الرمز'], rows: [['القوة', 'F'], ['الكتلة', 'm'], ['التسارع', 'a']], width: 420, headerFill: '#5B3FC7' },
+        {
+          op: 'TABLE',
+          id: 'b3t',
+          x: 120,
+          y: 545,
+          headers: ['الكمية', 'الرمز'],
+          rows: [
+            ['القوة', 'F'],
+            ['الكتلة', 'm'],
+            ['التسارع', 'a'],
+          ],
+          width: 420,
+          headerFill: '#5B3FC7',
+        },
         { op: 'HIGHLIGHT', target: 'b3t', mode: 'underline', color: '#FFD84D' },
       ],
     },
@@ -516,9 +653,6 @@ export function extractLessonJson(text: string): unknown {
 }
 
 /** Read a raw model reply all the way to a validated lesson. */
-export function parseLessonReply(
-  text: string,
-  options: LayoutOptions = {},
-): ParsedLesson | null {
+export function parseLessonReply(text: string, options: LayoutOptions = {}): ParsedLesson | null {
   return parseLesson(extractLessonJson(text), options);
 }
