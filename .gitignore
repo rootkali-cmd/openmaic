@@ -110,3 +110,4 @@ render-service/.owner-bound-parent-*/
 /verify-live.mjs
 /verify-live2.mjs
 /verify-rtl.mjs
+/verify-shell.mjs
