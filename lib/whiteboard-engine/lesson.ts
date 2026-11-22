@@ -215,8 +215,10 @@ function normalizeDrawCommand(cmd: DrawCommand): DrawCommand | null {
   }
 
   if (cmd.op === 'CODE') {
-    const text = cmd.text.replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim();
-    if (!text) return null;
+    // Leading spaces are indentation, not noise: Python blocks are read from
+    // them. Strip bidi markers and trailing spaces only, never the indent.
+    const text = cmd.text.replace(/[\u200e\u200f\u202a-\u202e]/g, '').replace(/\s+$/, '');
+    if (!text.trim()) return null;
     // Arabic prose belongs in TEXT, not in the code face. Program output is
     // the one exception: printing an Arabic string is real program behaviour.
     // A line that mixes Arabic with latin code (e.g. print('مرحبا')) stays
@@ -229,7 +231,7 @@ function normalizeDrawCommand(cmd: DrawCommand): DrawCommand | null {
         ...(cmd.id ? { id: cmd.id } : {}),
         x: cmd.x,
         y: cmd.y,
-        text,
+        text: text.trim(),
         size: Math.min(30, Math.max(16, cmd.size)),
         weight: 400,
         anchor: 'start',
