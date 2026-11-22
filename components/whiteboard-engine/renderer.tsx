@@ -65,10 +65,15 @@ function textRun(cmd: Extract<DrawCommand, { op: 'TEXT' }>): {
   if (cmd.anchor === 'middle') {
     return { x: cmd.x, anchor: 'middle', direction: 'rtl' };
   }
+  // In an RTL run the start edge is the right side and the end edge the left.
+  // `commandBBox` always measures a TEXT run from `x` rightwards, so pin the
+  // edge that lives at `x` instead of swapping the anchor blindly:
+  //   start → right edge at x + width
+  //   end   → left edge at x - width
   if (cmd.anchor === 'end') {
-    return { x: cmd.x - width, anchor: 'start', direction: 'rtl' };
+    return { x: cmd.x - width, anchor: 'end', direction: 'rtl' };
   }
-  return { x: cmd.x + width, anchor: 'end', direction: 'rtl' };
+  return { x: cmd.x + width, anchor: 'start', direction: 'rtl' };
 }
 
 const BOARD_FONT = "'Caveat', 'Aref Ruqaa', 'Cairo', sans-serif";

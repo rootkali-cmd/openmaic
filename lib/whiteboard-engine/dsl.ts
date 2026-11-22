@@ -33,7 +33,10 @@ export const PALETTE = {
 const coord = z.number().min(-2000).max(4000);
 const hex = z
   .string()
-  .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'expected a hex color');
+  .regex(
+    /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
+    'expected a hex color',
+  );
 const id = z.string().min(1).max(64);
 
 /* ── TEXT ─────────────────────────────────────────────────────────── */
@@ -194,7 +197,12 @@ export const highlightCommand = z
     target: id.optional(),
     /** Or an explicit region of the board. */
     region: z
-      .object({ x: coord, y: coord, w: z.number().min(4).max(2400), h: z.number().min(4).max(2400) })
+      .object({
+        x: coord,
+        y: coord,
+        w: z.number().min(4).max(2400),
+        h: z.number().min(4).max(2400),
+      })
       .optional(),
     mode: z.enum(['wash', 'underline', 'box', 'circle']).default('wash'),
     color: hex.optional(),
@@ -290,8 +298,15 @@ export interface BBox {
 export function estimateTextWidth(text: string, size: number): number {
   let units = 0;
   for (const ch of text) {
-    // Arabic joins and wide glyphs run wider than latin; approximations only.
-    units += /[A-Za-z0-9]/.test(ch) ? 0.55 : ch === ' ' ? 0.3 : 0.72;
+    // Arabic joins and its letters are narrower than the old 0.72 guess
+    // (Aref Ruqaa measures ~0.32em, Cairo ~0.41em); the 0.38 middle keeps a
+    // slight safety margin without pushing centred lines off the paper.
+    if (/[A-Za-z0-9]/.test(ch)) units += 0.55;
+    else if (ch === ' ') units += 0.25;
+    else if (/\u064B-\u0652\u0670/.test(ch))
+      continue; // harakat take no width
+    else if (/[\u0600-\u06FF]/.test(ch)) units += 0.38;
+    else units += 0.72;
   }
   return Math.max(size * 0.6, units * size);
 }
