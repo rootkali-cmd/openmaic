@@ -1,12 +1,17 @@
 'use client';
 
 /**
- * App shell — fixed dark sidebar + section top bar + content surface.
- * Every main Darsak section renders inside this frame so navigation,
- * timing and branding stay consistent across the product.
+ * App shell — dark navigation rail, section top bar and content surface.
+ * Every main Darsak section renders inside this frame so navigation, timing
+ * and branding stay consistent across the product.
+ *
+ * The rail lives on the reading-start edge and collapses; the content offset
+ * follows it (`ps` is the logical padding, so RTL puts the space on the right
+ * where the rail is). The collapsed width matches the icon rail exactly.
  */
 import type { ReactNode } from 'react';
 
+import { useNavCollapsed } from './nav-collapsed';
 import { ShellSidebar } from './sidebar';
 import { ShellTopbar } from './topbar';
 
@@ -22,10 +27,16 @@ export function AppShell({
   /** Extra classes for the content surface (e.g. whiteboard needs no padding). */
   contentClassName?: string;
 }) {
+  const collapsed = useNavCollapsed();
+
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[#0B0D16]">
       <ShellSidebar />
-      <div className="flex h-screen flex-col md:pl-[236px]">
+      <div
+        className={`flex h-screen flex-col transition-[padding] duration-200 ${
+          collapsed ? 'md:ps-[76px]' : 'md:ps-[236px]'
+        }`}
+      >
         <ShellTopbar title={title} actions={actions} />
         <main
           className={`darsak-shell-content relative min-h-0 flex-1 ${contentClassName ?? ''}`}

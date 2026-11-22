@@ -52,7 +52,7 @@ export function MobileNav() {
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-[#05060B]/70 backdrop-blur-sm"
           />
-          <div className="absolute inset-x-3 top-3 rounded-3xl border border-white/10 bg-[#0E111B] p-4 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.95)]">
+          <div className="absolute inset-y-0 start-0 flex w-[min(320px,86vw)] flex-col overflow-y-auto rounded-e-3xl border-e border-white/10 bg-[#0E111B] p-4 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.95)]">
             <div className="flex items-center gap-2">
               <Link
                 href="/tutor"
@@ -78,7 +78,7 @@ export function MobileNav() {
               </button>
             </div>
 
-            <nav className="mt-4 flex flex-col gap-0.5">
+            <nav className="mt-4 flex flex-1 flex-col gap-0.5">
               {SHELL_NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const active = item.key === activeKey;
