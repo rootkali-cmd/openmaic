@@ -56,6 +56,7 @@ function shiftCommand(cmd: DrawCommand, dx: number, dy: number): DrawCommand {
   switch (cmd.op) {
     case 'TEXT':
     case 'MATH':
+    case 'CODE':
     case 'RECTANGLE':
     case 'TABLE':
     case 'FLOWCHART':
@@ -78,11 +79,58 @@ function shiftCommand(cmd: DrawCommand, dx: number, dy: number): DrawCommand {
 
 /** Text wider than the column would run off the paper; shrink it to fit. */
 function shrinkTextToFit(cmd: DrawCommand, maxWidth: number): DrawCommand {
-  if (cmd.op !== 'TEXT' && cmd.op !== 'MATH') return cmd;
+  if (cmd.op !== 'TEXT' && cmd.op !== 'MATH' && cmd.op !== 'CODE') return cmd;
   const box = commandBBox(cmd);
   if (!box || box.w <= maxWidth) return cmd;
   const factor = Math.max(0.55, maxWidth / box.w);
-  return { ...cmd, size: Math.max(16, Math.round(cmd.size * factor)) };
+  return { ...cmd, size: Math.max(12, Math.round(cmd.size * factor)) };
+}
+
+/** Commands that read as a line of words: never allowed to overlap. */
+function isTextLike(cmd: DrawCommand): boolean {
+  return cmd.op === 'TEXT' || cmd.op === 'MATH' || cmd.op === 'CODE';
+}
+
+function boxesOverlap(a: BBox, b: BBox, pad: number): boolean {
+  return (
+    a.x < b.x + b.w + pad &&
+    a.x + a.w + pad > b.x &&
+    a.y < b.y + b.h + pad &&
+    a.y + a.h + pad > b.y
+  );
+}
+
+/**
+ * The model authors one y per line and regularly underestimates its own line
+ * height, so two lines land on top of each other and the board reads as
+ * scribble. Text-like commands keep their authored order, but any line that
+ * would collide with an earlier one is pushed down until it clears it.
+ */
+function separateTextRows(draws: DrawCommand[]): DrawCommand[] {
+  const out = [...draws];
+  const placed: BBox[] = [];
+
+  for (let index = 0; index < out.length; index += 1) {
+    const cmd = out[index];
+    if (!isTextLike(cmd)) continue;
+    let box = commandBBox(cmd);
+    if (!box) continue;
+
+    let guard = 0;
+    while (guard < 8) {
+      guard += 1;
+      const hit = placed.find((other) => boxesOverlap(other, box as BBox, 6));
+      if (!hit) break;
+      const shifted = shiftCommand(cmd, 0, Math.ceil(hit.y + hit.h + 8 - box.y));
+      out[index] = shifted;
+      const next = commandBBox(shifted);
+      if (!next) break;
+      box = next;
+    }
+    placed.push(box);
+  }
+
+  return out;
 }
 
 function layoutBeats(beats: LessonBeat[], startY = SAFE_TOP): void {
@@ -95,9 +143,11 @@ function layoutBeats(beats: LessonBeat[], startY = SAFE_TOP): void {
     const localIds = new Set(
       beat.draws.map((cmd) => ('id' in cmd ? cmd.id : undefined)).filter(Boolean) as string[],
     );
-    beat.draws = beat.draws
-      .filter((cmd) => cmd.op !== 'HIGHLIGHT' || !cmd.target || localIds.has(cmd.target))
-      .map((cmd) => shrinkTextToFit(cmd, column));
+    beat.draws = separateTextRows(
+      beat.draws
+        .filter((cmd) => cmd.op !== 'HIGHLIGHT' || !cmd.target || localIds.has(cmd.target))
+        .map((cmd) => shrinkTextToFit(cmd, column)),
+    );
 
     const boxes = beat.draws
       .map((cmd) => commandBBox(cmd))
@@ -144,6 +194,62 @@ function isOversizedWash(cmd: DrawCommand): boolean {
 }
 
 /**
+ * A line that is really source code, not prose: parentheses, braces or
+ * statement keywords in a latin identifier context. Plain arithmetic prose
+ * ("الشغل = القوة × المسافة") never matches.
+ */
+const CODEISH =
+  /(\{|\}|;|\[\s*\]|\b(?:print|printf|puts|console\.log|def|function|return|let|const|var|int|char|float|double|string|for|while|if|else|elif|class|import|from|range)\b|[A-Za-z_]\w*\s*\()/;
+
+/**
+ * Clean one draw command before layout:
+ * - a filled rectangle with no label is decoration (the model paints bars
+ *   and blobs under the lesson), so it is dropped;
+ * - a TEXT line that is really code becomes CODE, so it is rendered as one
+ *   left-to-right run instead of being bidi-shuffled with Arabic;
+ * - a TEXT line that mixes Arabic explanation with code punctuation is
+ *   dropped: the spoken sentence still explains it, and drawing it would be
+ *   unreadable at any size;
+ * - an off-target highlight box is dropped rather than left floating.
+ */
+function normalizeDrawCommand(cmd: DrawCommand): DrawCommand | null {
+  if (cmd.op === 'RECTANGLE') {
+    const decorativeFill = cmd.fill !== 'none' && !cmd.label;
+    if (decorativeFill && (cmd.w * cmd.h > 12_000 || cmd.w < 40 || cmd.h < 24)) return null;
+    return cmd;
+  }
+
+  if (cmd.op === 'TEXT') {
+    const hasArabic = /[\u0600-\u06FF]/.test(cmd.text);
+    const hasCode = CODEISH.test(cmd.text);
+    if (hasCode && hasArabic) return null;
+    if (hasCode && !hasArabic) {
+      return {
+        op: 'CODE',
+        ...(cmd.id ? { id: cmd.id } : {}),
+        x: cmd.x,
+        y: cmd.y,
+        text: cmd.text.replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim(),
+        lang: 'other',
+        tone: 'plain',
+        size: Math.min(30, Math.max(16, cmd.size)),
+        ...(cmd.color ? { color: cmd.color } : {}),
+      };
+    }
+    return cmd;
+  }
+
+  if (cmd.op === 'HIGHLIGHT' && cmd.region) {
+    const { w, h } = cmd.region;
+    if (cmd.mode === 'box' && (h > 90 || w > 520)) return null;
+    if (cmd.mode === 'circle' && (w > 420 || h > 200)) return null;
+    if (cmd.mode === 'underline' && w > 620) return null;
+  }
+
+  return cmd;
+}
+
+/**
  * Validate the teaching model's JSON into a Lesson. Invalid beats are
  * dropped; invalid draw commands inside a beat are filtered out.
  */
@@ -185,11 +291,19 @@ export function parseLesson(input: unknown, options: LayoutOptions = {}): Parsed
     const raw = Array.isArray(beat.draws) ? beat.draws : [];
     const parsedDraws = parseDrawCommands(raw);
     dropped += raw.length - parsedDraws.length;
-    const draws = parsedDraws.filter((cmd) => {
-      if (!isOversizedWash(cmd)) return true;
-      dropped += 1;
-      return false;
-    });
+    const draws: DrawCommand[] = [];
+    for (const cmd of parsedDraws) {
+      if (isOversizedWash(cmd)) {
+        dropped += 1;
+        continue;
+      }
+      const normalized = normalizeDrawCommand(cmd);
+      if (normalized === null) {
+        dropped += 1;
+        continue;
+      }
+      draws.push(normalized);
+    }
     const speech = beat.speech.trim();
     if (!speech && draws.length === 0) return; // empty beat — skip
     beats.push({ id: `b${index}`, speech, draws });

@@ -308,6 +308,54 @@ function renderCommand(
       );
     }
 
+    case 'CODE': {
+      // One LTR monospace run, isolated from the surrounding RTL page: the
+      // bidi algorithm cannot swap statement punctuation with Arabic text.
+      const toneColor =
+        cmd.tone === 'comment'
+          ? '#8B82B8'
+          : cmd.tone === 'output'
+            ? '#2E7D5B'
+            : cmd.tone === 'input'
+              ? '#5B3FC7'
+              : (cmd.color ?? '#241B45');
+      const lineWidth = Math.max(cmd.size * 0.6, cmd.text.length * cmd.size * 0.62);
+      return (
+        <motion.g
+          key={key}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, ease: [0.215, 0.61, 0.355, 1] }}
+        >
+          <rect
+            x={cmd.x - 10}
+            y={cmd.y - cmd.size - 4}
+            width={lineWidth + 20}
+            height={cmd.size * 1.5 + 6}
+            rx={7}
+            fill="#F4F0FD"
+            opacity={cmd.tone === 'plain' ? 0.75 : 0.55}
+          />
+          <text
+            x={cmd.x}
+            y={cmd.y}
+            fill={toneColor}
+            fontSize={cmd.size}
+            className="wb-ink-text"
+            xmlSpace="preserve"
+            style={{
+              direction: 'ltr',
+              unicodeBidi: 'isolate',
+              fontFamily: "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+              letterSpacing: '0.01em',
+            }}
+          >
+            {cmd.text}
+          </text>
+        </motion.g>
+      );
+    }
+
     case 'LINE':
       return (
         <motion.g

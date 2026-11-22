@@ -63,6 +63,7 @@ function translateCmd(cmd: DrawCommand, dx: number, dy: number): DrawCommand {
   switch (cmd.op) {
     case 'TEXT':
     case 'MATH':
+    case 'CODE':
     case 'TABLE':
     case 'FLOWCHART':
       return { ...cmd, x: cmd.x + dx, y: cmd.y + dy } as DrawCommand;

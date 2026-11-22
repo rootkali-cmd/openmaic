@@ -11,6 +11,12 @@ export interface LessonRecord {
   title: string;
   summary?: string;
   at: number;
+  /**
+   * The lesson as it was taught, so opening it from the library replays the
+   * same board instead of paying for a fresh generation. Older records (or
+   * records trimmed to save space) have no body and are re-asked on open.
+   */
+  body?: { title: string; beats: { speech: string; draws: unknown[] }[] };
 }
 
 export interface QuizAttempt {
@@ -84,7 +90,12 @@ export function getLessons(): LessonRecord[] {
   return read<LessonRecord[]>(LESSONS_KEY, []).sort((a, b) => b.at - a.at);
 }
 
-export function addLesson(input: { question: string; title: string; summary?: string }): void {
+export function addLesson(input: {
+  question: string;
+  title: string;
+  summary?: string;
+  body?: LessonRecord['body'];
+}): void {
   const question = input.question.trim();
   if (!question) return;
   const next: LessonRecord = {
@@ -93,11 +104,23 @@ export function addLesson(input: { question: string; title: string; summary?: st
     title: input.title.trim() || question,
     summary: input.summary?.trim() || undefined,
     at: Date.now(),
+    body: input.body,
   };
   const kept = getLessons().filter(
     (item) => item.question !== question || item.title !== next.title,
   );
-  write(LESSONS_KEY, [next, ...kept].slice(0, 200));
+  // Full boards are the big part of this store: keep the newest 60, and the
+  // older ones stay as title-only history (they can be taught again).
+  const nextStore = [next, ...kept].slice(0, 200);
+  nextStore.forEach((record, index) => {
+    if (index >= 60) delete record.body;
+  });
+  write(LESSONS_KEY, nextStore);
+}
+
+/** One stored lesson by id, with its board when it still has one. */
+export function getLesson(id: string): LessonRecord | undefined {
+  return getLessons().find((item) => item.id === id);
 }
 
 /* -------------------------------- quizzes ------------------------------- */

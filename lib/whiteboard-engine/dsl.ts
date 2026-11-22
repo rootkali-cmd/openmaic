@@ -62,6 +62,30 @@ export const mathCommand = z.object({
   display: z.boolean().default(true),
 });
 
+/* ── CODE ─────────────────────────────────────────────────────────── */
+/**
+ * One line of code, rendered left-to-right in a monospace face.
+ *
+ * Code must never travel inside TEXT: a mixed Arabic/English line is
+ * re-ordered by the bidi algorithm and both halves become unreadable. The
+ * lesson prompt puts every code line in its own CODE command, and the
+ * renderer isolates it as a single LTR run.
+ */
+export const codeCommand = z.object({
+  op: z.literal('CODE'),
+  id: id.optional(),
+  x: coord,
+  y: coord,
+  text: z.string().min(1).max(240),
+  lang: z
+    .enum(['python', 'javascript', 'typescript', 'c', 'cpp', 'java', 'html', 'css', 'sql', 'other'])
+    .default('other'),
+  /** `plain` code, `input` data handed to the program, `output` what it prints. */
+  tone: z.enum(['plain', 'input', 'output', 'comment']).default('plain'),
+  size: z.number().min(12).max(38).default(22),
+  color: hex.optional(),
+});
+
 /* ── LINE / ARROW ─────────────────────────────────────────────────── */
 const strokeFields = {
   color: hex.optional(),
@@ -204,6 +228,7 @@ export const moveCommand = z.object({
 export const drawCommandSchema = z.discriminatedUnion('op', [
   textCommand,
   mathCommand,
+  codeCommand,
   lineCommand,
   arrowCommand,
   circleCommand,
@@ -222,6 +247,7 @@ export type DrawCommandOp = DrawCommand['op'];
 export const DRAW_COMMAND_OPS: readonly DrawCommandOp[] = [
   'TEXT',
   'MATH',
+  'CODE',
   'LINE',
   'ARROW',
   'CIRCLE',
@@ -280,6 +306,11 @@ export function commandBBox(cmd: DrawCommand): BBox | null {
     case 'MATH': {
       const w = Math.min(900, cmd.latex.length * cmd.size * 0.42);
       return { x: cmd.x, y: cmd.y - cmd.size, w, h: cmd.size * 1.7 };
+    }
+    case 'CODE': {
+      // Monospace: every glyph (Latin, digit, punctuation) is ~0.6em wide.
+      const w = Math.max(cmd.size * 0.6, cmd.text.length * cmd.size * 0.62);
+      return { x: cmd.x, y: cmd.y - cmd.size, w, h: cmd.size * 1.5 };
     }
     case 'LINE':
     case 'ARROW':

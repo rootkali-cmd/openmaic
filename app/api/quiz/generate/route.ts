@@ -25,16 +25,20 @@ interface Question {
   options: string[];
   answer: number;
   explain: string;
+  /** Optional standalone code snippet shown in its own LTR block. */
+  code?: string;
 }
 
 const SYSTEM_PROMPT = `أنت مدرس عربي بيكتب اختبارات قصيرة (اختيار من متعدد) على أي موضوع.
 أعد JSON فقط، بدون أي نص خارجه، بالشكل ده:
-{"title":"عنوان الاختبار","questions":[{"q":"نص السؤال","options":["أ","ب","ج","د"],"answer":0,"explain":"جملة تشرح ليه الإجابة صح"}]}
+{"title":"عنوان الاختبار","questions":[{"q":"نص السؤال بالعربي","code":"الكود لو السؤال فيه كود (اختياري)","options":["أ","ب","ج","د"],"answer":0,"explain":"جملة تشرح ليه الإجابة صح"}]}
 
 قواعد:
 - 4 اختيارات لكل سؤال، كلها مختلفة، وواحد بس صح وanswer هو رقمه من 0 لـ 3.
 - الاختيارات الغلط تكون قريبة ومنطقية (أخطاء شائعة)، مش واضحة الغلط.
 - الأسئلة عربية فصحى مبسطة، وكل سؤال فكرة واحدة.
+- أي كود أو سطر برمجي يتحط في حقل "code" منفصل عن نص السؤال، وممنوع خلط عربي وإنجليزي في نفس السطر: الشرح العربي في q و explain، والكود في code (أقصى 6 أسطر، كل سطر ≤ 60 حرف، وممنوع عربي جوه الكود إلا لو الناتج المطبوع). لو مفيش كود، امتنع عن الحقل خالص.
+- الاختيارات نفسها ممكن تكون قيم أو رموز قصيرة (زي 20 أو x++) وده مسموح، لكن متحطش كود طويل في الاختيارات.
 - نوّع بين فهم وتطبيق وحساب، وممنوع سؤالين بنفس الفكرة.
 - explain جملة واحدة قصيرة (8-20 كلمة) توضّح الإجابة.
 - ممنوع Markdown أو رموز تعبيرية أو أي كلام قبل JSON أو بعده.`;
@@ -64,6 +68,8 @@ function parseQuiz(text: string): { title: string; questions: Question[] } | nul
     const item = raw as Record<string, unknown>;
     const q = typeof item.q === 'string' ? item.q.trim() : '';
     const explain = typeof item.explain === 'string' ? item.explain.trim() : '';
+    const code =
+      typeof item.code === 'string' ? item.code.trim().slice(0, 600) : '';
     const options = Array.isArray(item.options)
       ? item.options.filter((option): option is string => typeof option === 'string').map((o) => o.trim())
       : [];
@@ -71,7 +77,7 @@ function parseQuiz(text: string): { title: string; questions: Question[] } | nul
     if (!q || options.length !== 4 || options.some((option) => !option)) continue;
     if (!Number.isInteger(answer) || answer < 0 || answer > 3) continue;
     if (new Set(options).size !== 4) continue;
-    questions.push({ q, options, answer, explain });
+    questions.push({ q, options, answer, explain, ...(code ? { code } : {}) });
   }
   if (questions.length === 0) return null;
   return {

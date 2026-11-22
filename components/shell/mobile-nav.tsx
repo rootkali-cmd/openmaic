@@ -82,18 +82,13 @@ export function MobileNav() {
               {SHELL_NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const active = item.key === activeKey;
-                return (
-                  <Link
-                    key={item.key}
-                    href={item.href ?? '/tutor'}
-                    aria-current={active ? 'page' : undefined}
-                    onClick={() => setOpen(false)}
-                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition ${
-                      active
-                        ? 'bg-white/[0.08] text-white'
-                        : 'text-white/60 hover:bg-white/[0.05] hover:text-white/90'
-                    }`}
-                  >
+                const rowClass = `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition ${
+                  active
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-white/60 hover:bg-white/[0.05] hover:text-white/90'
+                }`;
+                const content = (
+                  <>
                     <Icon
                       className={`size-4.5 shrink-0 ${active ? 'text-[#9178E6]' : ''}`}
                       aria-hidden
@@ -102,6 +97,31 @@ export function MobileNav() {
                     {active ? (
                       <span className="size-1.5 rounded-full bg-[#9178E6]" aria-hidden />
                     ) : null}
+                  </>
+                );
+                if (item.external) {
+                  return (
+                    <a
+                      key={item.key}
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setOpen(false)}
+                      className={rowClass}
+                    >
+                      {content}
+                    </a>
+                  );
+                }
+                return (
+                  <Link
+                    key={item.key}
+                    href={item.href ?? '/tutor'}
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => setOpen(false)}
+                    className={rowClass}
+                  >
+                    {content}
                   </Link>
                 );
               })}

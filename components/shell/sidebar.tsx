@@ -140,21 +140,15 @@ export function ShellSidebar() {
             );
           }
 
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              aria-label={collapsed ? label : undefined}
-              title={collapsed ? label : undefined}
-              className={`relative flex items-center gap-3 rounded-xl py-2.5 text-[13px] font-medium transition ${
-                collapsed ? 'justify-center px-0' : 'px-3'
-              } ${
-                active
-                  ? 'bg-white/[0.08] text-white'
-                  : 'text-white/55 hover:bg-white/[0.05] hover:text-white/85'
-              }`}
-            >
+          const rowClass = `relative flex items-center gap-3 rounded-xl py-2.5 text-[13px] font-medium transition ${
+            collapsed ? 'justify-center px-0' : 'px-3'
+          } ${
+            active
+              ? 'bg-white/[0.08] text-white'
+              : 'text-white/55 hover:bg-white/[0.05] hover:text-white/85'
+          }`;
+          const content = (
+            <>
               <Icon
                 className={`size-4.5 shrink-0 ${active ? 'text-[#9178E6]' : ''}`}
                 aria-hidden
@@ -174,6 +168,35 @@ export function ShellSidebar() {
                   ) : null}
                 </>
               )}
+            </>
+          );
+
+          if (item.external) {
+            return (
+              <a
+                key={item.key}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={collapsed ? label : undefined}
+                title={collapsed ? label : undefined}
+                className={rowClass}
+              >
+                {content}
+              </a>
+            );
+          }
+
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              aria-label={collapsed ? label : undefined}
+              title={collapsed ? label : undefined}
+              className={rowClass}
+            >
+              {content}
             </Link>
           );
         })}

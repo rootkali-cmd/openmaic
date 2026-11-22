@@ -24,9 +24,9 @@ import { InputBar, type AttachedImage } from '@/components/whiteboard-engine/inp
 import { LessonStatus } from '@/components/whiteboard-engine/lesson-status';
 import { TeacherHud } from '@/components/whiteboard-engine/teacher-hud';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { addLesson } from '@/lib/study-data';
+import { addLesson, getLesson } from '@/lib/study-data';
 import { resolveBBox, useBoardStore } from '@/lib/whiteboard-engine/board-store';
-import type { Lesson } from '@/lib/whiteboard-engine/lesson';
+import type { Lesson, LessonBeat } from '@/lib/whiteboard-engine/lesson';
 import { requestLesson } from '@/lib/whiteboard-engine/lesson-client';
 import { usePlayerStore } from '@/lib/whiteboard-engine/player';
 
@@ -92,6 +92,12 @@ function WhiteboardSurface() {
         question,
         title: lesson.title,
         summary: lesson.beats[0]?.speech?.slice(0, 160),
+        // Keep the board itself: the library and search replay this instead
+        // of asking the model (and paying) for the same lesson again.
+        body: {
+          title: lesson.title,
+          beats: lesson.beats.map((beat) => ({ speech: beat.speech, draws: beat.draws })),
+        },
       });
     };
 
@@ -121,6 +127,30 @@ function WhiteboardSurface() {
       setBusy(false);
     }
   }, []);
+
+  // A saved lesson opens from the library/search as ?lesson=<id>: replay its
+  // stored board. Ask it again only when the record has no body (old record,
+  // or trimmed to keep localStorage small).
+  const handedLesson = searchParams.get('lesson');
+  useEffect(() => {
+    if (!handedLesson) return;
+    window.history.replaceState(null, '', '/whiteboard');
+    const record = getLesson(handedLesson);
+    if (!record) return;
+    const beats = record.body?.beats as LessonBeat[] | undefined;
+    if (beats && beats.length > 0) {
+      usePlayerStore
+        .getState()
+        .start({ title: record.body?.title || record.title, beats }, { clear: true });
+      historyRef.current = [
+        ...historyRef.current,
+        { question: record.question, title: record.title },
+      ].slice(-6);
+      return;
+    }
+    ask(record.question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per handed lesson
+  }, [handedLesson]);
 
   // Questions handed over from the tutor home arrive as ?q=.
   const handedQuestion = searchParams.get('q');

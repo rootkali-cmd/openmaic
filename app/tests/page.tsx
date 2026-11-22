@@ -28,6 +28,40 @@ interface Question {
   options: string[];
   answer: number;
   explain: string;
+  /** Standalone code shown above the options, rendered LTR. */
+  code?: string;
+}
+
+interface QuizReview {
+  summary: string;
+  weakPoints: { title: string; why: string; fix: string }[];
+  nextSteps: string[];
+}
+
+type AnalysisState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'done'; review: QuizReview }
+  | { status: 'error'; error: string };
+
+/** Options that are values/snippets read as code, not as Arabic prose. */
+function isCodeLike(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const arabic = /[\u0600-\u06FF]/.test(trimmed);
+  const codeish = /[A-Za-z0-9_\[\]{}();=<>+\-*/]/.test(trimmed);
+  return codeish && !arabic;
+}
+
+function CodeBlock({ code }: { code: string }) {
+  return (
+    <pre
+      dir="ltr"
+      className="mt-2 overflow-x-auto rounded-xl border border-white/10 bg-[#0B0D16] px-3 py-2 text-start font-mono text-[11.5px] leading-5 text-[#D8D0FF]"
+    >
+      {code}
+    </pre>
+  );
 }
 
 interface QuizPayload {
@@ -48,6 +82,7 @@ export default function TestsPage() {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
+  const [analysis, setAnalysis] = useState<AnalysisState>({ status: 'idle' });
 
   useEffect(() => {
     setAttempts(getQuizAttempts().slice(0, 4));
@@ -83,10 +118,65 @@ export default function TestsPage() {
       }
       setQuiz({ title: payload.title ?? clean, questions: payload.questions });
       setAnswers({});
+      setAnalysis({ status: 'idle' });
       setPhase('quiz');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'مقدرناش نولّد الاختبار دلوقتي.');
       setPhase('setup');
+    }
+  };
+
+  const analyze = async (wrongCount: number, score: number) => {
+    if (!quiz) return;
+    const wrong = quiz.questions.flatMap((question, index) => {
+      const chosen = answers[index];
+      if (chosen === undefined || chosen === question.answer) return [];
+      return [
+        {
+          question: question.q,
+          options: question.options,
+          answer: question.answer,
+          chosen,
+          explain: question.explain,
+          ...(question.code ? { code: question.code } : {}),
+        },
+      ];
+    });
+    setAnalysis({ status: 'loading' });
+    try {
+      const response = await fetch('/api/quiz/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: quiz.title,
+          score,
+          total: quiz.questions.length,
+          wrong,
+        }),
+      });
+      const payload = (await response.json()) as {
+        summary?: string;
+        weakPoints?: QuizReview['weakPoints'];
+        nextSteps?: string[];
+        error?: string;
+      };
+      if (!response.ok || !payload.summary) {
+        throw new Error(payload.error || 'مقدرناش نحلل نتيجتك دلوقتي.');
+      }
+      setAnalysis({
+        status: 'done',
+        review: {
+          summary: payload.summary,
+          weakPoints: payload.weakPoints ?? [],
+          nextSteps: payload.nextSteps ?? [],
+        },
+      });
+    } catch (caught) {
+      setAnalysis({
+        status: 'error',
+        error:
+          caught instanceof Error ? caught.message : 'مقدرناش نحلل نتيجتك دلوقتي.',
+      });
     }
   };
 
@@ -99,6 +189,7 @@ export default function TestsPage() {
     addQuizAttempt({ topic: quiz.title, total: quiz.questions.length, correct });
     setAttempts(getQuizAttempts().slice(0, 4));
     setPhase('result');
+    void analyze(quiz.questions.length - correct, correct);
   };
 
   const answeredCount = quiz ? Object.keys(answers).length : 0;
@@ -245,6 +336,7 @@ export default function TestsPage() {
                       <span className="me-1.5 text-[#9178E6]">{questionIndex + 1}.</span>
                       {question.q}
                     </p>
+                    {question.code ? <CodeBlock code={question.code} /> : null}
                     <div className="mt-3 grid gap-1.5">
                       {question.options.map((option, optionIndex) => {
                         const selected = answers[questionIndex] === optionIndex;
@@ -268,7 +360,14 @@ export default function TestsPage() {
                             >
                               {['أ', 'ب', 'ج', 'د'][optionIndex]}
                             </span>
-                            <span className="flex-1 leading-5">{option}</span>
+                            <span
+                              className={`flex-1 leading-5 ${
+                                isCodeLike(option) ? 'text-start font-mono text-[12px]' : ''
+                              }`}
+                              dir={isCodeLike(option) ? 'ltr' : undefined}
+                            >
+                              {option}
+                            </span>
                           </button>
                         );
                       })}
@@ -344,6 +443,78 @@ export default function TestsPage() {
                 </div>
               </section>
 
+              <section className="mt-4 rounded-3xl border border-white/[0.08] bg-white/[0.035] p-5">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-8 place-items-center rounded-xl bg-[#9178E6]/15 text-[#B9A8FF]">
+                    <Sparkles className="size-4" aria-hidden />
+                  </span>
+                  <div>
+                    <h2 className="text-[13px] font-bold text-white">تحليل نقاط الضعف</h2>
+                    <p className="text-[10.5px] text-white/40">
+                      المدرس بيقرا غلطاتك ويقولك تصلحها إزاي.
+                    </p>
+                  </div>
+                </div>
+
+                {analysis.status === 'loading' ? (
+                  <p className="mt-4 flex items-center gap-2 text-[12px] text-white/55">
+                    <Loader2 className="size-4 animate-spin text-[#9178E6]" aria-hidden />
+                    بنحلل إجاباتك ونحدد اللي محتاج مراجعة…
+                  </p>
+                ) : analysis.status === 'error' ? (
+                  <div className="mt-4 rounded-2xl bg-[#FB7E5B]/10 px-3.5 py-3">
+                    <p className="text-[11.5px] leading-6 text-[#FFB4A0]">{analysis.error}</p>
+                    <button
+                      type="button"
+                      onClick={() => void analyze(quiz.questions.length - correctCount, correctCount)}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white/15"
+                    >
+                      <RefreshCw className="size-3" aria-hidden />
+                      جرّب التحليل تاني
+                    </button>
+                  </div>
+                ) : analysis.status === 'done' ? (
+                  <div className="mt-4 space-y-3">
+                    <p className="rounded-2xl bg-white/[0.04] px-4 py-3 text-[12px] leading-7 text-white/80">
+                      {analysis.review.summary}
+                    </p>
+                    {analysis.review.weakPoints.map((point) => (
+                      <div
+                        key={point.title}
+                        className="rounded-2xl border border-[#FB7E5B]/20 bg-[#FB7E5B]/[0.06] p-3.5"
+                      >
+                        <p className="text-[12px] font-bold text-[#FFB4A0]">{point.title}</p>
+                        {point.why ? (
+                          <p className="mt-1 text-[11px] leading-6 text-white/55">{point.why}</p>
+                        ) : null}
+                        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-6 text-[#7BE8BE]">
+                          <Check className="mt-1 size-3 shrink-0" aria-hidden />
+                          {point.fix}
+                        </p>
+                      </div>
+                    ))}
+                    {analysis.review.nextSteps.length > 0 ? (
+                      <div className="rounded-2xl bg-white/[0.03] p-3.5">
+                        <p className="text-[11px] font-bold text-white/70">خطوات عملية</p>
+                        <ol className="mt-2 space-y-1.5">
+                          {analysis.review.nextSteps.map((step, index) => (
+                            <li
+                              key={`${index}-${step.slice(0, 12)}`}
+                              className="flex items-start gap-2 text-[11.5px] leading-6 text-white/60"
+                            >
+                              <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-[#9178E6]/20 text-[9px] font-bold text-[#B9A8FF]">
+                                {index + 1}
+                              </span>
+                              {step}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </section>
+
               <ol className="mt-4 space-y-3">
                 {quiz.questions.map((question, index) => {
                   const chosen = answers[index];
@@ -369,6 +540,7 @@ export default function TestsPage() {
                           {index + 1}. {question.q}
                         </span>
                       </p>
+                      {question.code ? <CodeBlock code={question.code} /> : null}
                       <p className="mt-2 text-[11.5px] leading-6 text-white/60">
                         الإجابة الصح:{' '}
                         <span className="font-semibold text-white/85">
