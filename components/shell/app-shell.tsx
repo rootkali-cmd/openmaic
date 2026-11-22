@@ -6,10 +6,13 @@
  * and branding stay consistent across the product.
  *
  * The rail lives on the reading-start edge and collapses; the content offset
- * follows it (`ps` is the logical padding, so RTL puts the space on the right
- * where the rail is). The collapsed width matches the icon rail exactly.
+ * follows it (`ps` is logical, so RTL puts the space on the right where the
+ * rail is). `--darsak-rail` exposes the current rail width to children that
+ * position themselves against the viewport (the home page's tool cluster).
+ * Shell routes hide the document scrollbar: their surfaces scroll inside the
+ * frame, so the root one would only be an empty gutter.
  */
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { useNavCollapsed } from './nav-collapsed';
 import { ShellSidebar } from './sidebar';
@@ -29,8 +32,17 @@ export function AppShell({
 }) {
   const collapsed = useNavCollapsed();
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('darsak-shell-page');
+    return () => root.classList.remove('darsak-shell-page');
+  }, []);
+
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#0B0D16]">
+    <div
+      className="darsak-shell relative h-screen w-full overflow-hidden bg-[#0B0D16]"
+      style={{ ['--darsak-rail' as string]: collapsed ? '76px' : '236px' }}
+    >
       <ShellSidebar />
       <div
         className={`flex h-screen flex-col transition-[padding] duration-200 ${

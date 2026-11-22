@@ -23,9 +23,9 @@ export interface ShellNavItem {
 }
 
 export const SHELL_NAV_ITEMS: ShellNavItem[] = [
+  { key: 'courses', icon: BookOpen, href: '/' },
   { key: 'tutor', icon: MessageSquare, href: '/tutor' },
   { key: 'board', icon: PenLine, href: '/whiteboard' },
-  { key: 'courses', icon: BookOpen, href: '/' },
   { key: 'search', icon: Search, href: '/search' },
   { key: 'plans', icon: Target, href: '/plans' },
   { key: 'tests', icon: FlaskConical, href: '/tests' },

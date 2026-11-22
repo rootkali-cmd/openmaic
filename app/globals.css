@@ -598,3 +598,44 @@ body[data-maic-editor='true'] .editable-element-text li,
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
 }
+
+/* ── Darsak shell chrome ──────────────────────────────────────────────
+   Shell routes scroll inside the frame, so the document scrollbar would
+   only be a permanent empty gutter next to the rail; hide it and slim the
+   inner scroll areas down to a quiet dark track instead of the OS default. */
+html.darsak-shell-page {
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
+}
+
+html.darsak-shell-page * {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+}
+
+html.darsak-shell-page *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html.darsak-shell-page *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html.darsak-shell-page *::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.12);
+  border-radius: 999px;
+}
+
+html.darsak-shell-page *::-webkit-scrollbar-thumb:hover {
+  background: rgb(145 120 230 / 0.45);
+}
+
+/* The home page's own language/theme cluster is fixed to the viewport; it
+   must clear the navigation rail now that the rail sits beside it. */
+@media (min-width: 768px) {
+  html.darsak-shell-page .home-top-tools {
+    right: auto;
+    inset-inline-start: calc(var(--darsak-rail, 236px) + 16px);
+  }
+}

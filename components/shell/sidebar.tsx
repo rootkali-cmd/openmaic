@@ -72,41 +72,44 @@ export function ShellSidebar() {
         collapsed ? 'w-[76px]' : 'w-[236px]'
       }`}
     >
-      {/* Collapse toggle, riding the edge that faces the content. */}
-      <button
-        type="button"
-        onClick={() => setCollapsed(!collapsed)}
-        aria-label={toggleLabel}
-        aria-expanded={!collapsed}
-        title={toggleLabel}
-        className="absolute top-[18px] end-[-12px] z-10 grid size-6 place-items-center rounded-full border border-white/15 bg-[#141722] text-white/55 shadow-[0_6px_18px_-6px_rgba(0,0,0,0.9)] transition hover:border-[#9178E6]/50 hover:text-white"
-      >
-        {collapsed ? (
-          <ChevronRight className="size-3.5 rtl:rotate-180" aria-hidden />
-        ) : (
-          <ChevronLeft className="size-3.5 rtl:rotate-180" aria-hidden />
-        )}
-      </button>
-
-      <Link
-        href="/tutor"
-        className={`flex items-center gap-2.5 pt-5 pb-4 ${
-          collapsed ? 'justify-center px-0' : 'px-5'
+      {/* Brand + collapse toggle share the top row, inside the rail. */}
+      <div
+        className={`flex shrink-0 items-center gap-2 pt-5 pb-4 ${
+          collapsed ? 'flex-col gap-2.5 px-0' : 'px-5'
         }`}
-        aria-label={t('shell.home')}
-        title={collapsed ? 'Darsak AI' : undefined}
       >
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#9178E6] to-[#5B3FC7] text-white shadow-[0_6px_16px_-8px_#9178E6]">
-          <svg viewBox="0 0 24 24" className="size-4.5" fill="currentColor" aria-hidden>
-            <path d="M12 1.8c.7 4.9 3.5 7.7 8.4 8.4v3.6c-4.9.7-7.7 3.5-8.4 8.4h-3.6c-.7-4.9-3.5-7.7-8.4-8.4V9.8c4.9-.7 7.7-3.5 8.4-8.4h3.6Z" />
-          </svg>
-        </span>
-        {collapsed ? null : (
-          <span className="truncate text-[15px] font-black tracking-tight text-white">
-            Darsak <span className="text-[#9178E6]">AI</span>
+        <Link
+          href="/tutor"
+          className={`flex min-w-0 items-center gap-2.5 ${collapsed ? '' : 'flex-1'}`}
+          aria-label={t('shell.home')}
+          title={collapsed ? 'Darsak AI' : undefined}
+        >
+          <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#9178E6] to-[#5B3FC7] text-white shadow-[0_6px_16px_-8px_#9178E6]">
+            <svg viewBox="0 0 24 24" className="size-4.5" fill="currentColor" aria-hidden>
+              <path d="M12 1.8c.7 4.9 3.5 7.7 8.4 8.4v3.6c-4.9.7-7.7 3.5-8.4 8.4h-3.6c-.7-4.9-3.5-7.7-8.4-8.4V9.8c4.9-.7 7.7-3.5 8.4-8.4h3.6Z" />
+            </svg>
           </span>
-        )}
-      </Link>
+          {collapsed ? null : (
+            <span className="truncate text-[15px] font-black tracking-tight text-white">
+              Darsak <span className="text-[#9178E6]">AI</span>
+            </span>
+          )}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={toggleLabel}
+          aria-expanded={!collapsed}
+          title={toggleLabel}
+          className="grid size-6 shrink-0 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-white/45 transition hover:border-[#9178E6]/45 hover:bg-white/[0.08] hover:text-white"
+        >
+          {collapsed ? (
+            <ChevronRight className="size-3.5 rtl:rotate-180" aria-hidden />
+          ) : (
+            <ChevronLeft className="size-3.5 rtl:rotate-180" aria-hidden />
+          )}
+        </button>
+      </div>
 
       <nav
         className={`flex flex-col gap-0.5 ${collapsed ? 'px-2' : 'px-3'}`}

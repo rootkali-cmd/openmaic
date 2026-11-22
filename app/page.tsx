@@ -904,14 +904,22 @@ function HomePage() {
       >
         {/* ── Logo ── */}
         <div className="home-brand relative" data-pro-morph="lockup">
-          <img
-            src="/logo-horizontal.png"
-            alt="OpenMAIC"
+          <div
             className={cn(
-              'h-12 md:h-16 mb-2 -ml-2 md:-ml-3',
+              'mb-2 flex items-center gap-3',
               heroEnter('fade-in zoom-in-90 duration-500 delay-100'),
             )}
-          />
+            aria-label="Darsak AI"
+          >
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#9178E6] to-[#5B3FC7] text-white shadow-[0_10px_28px_-10px_#9178E6] md:size-16">
+              <svg viewBox="0 0 24 24" className="size-6 md:size-8" fill="currentColor" aria-hidden>
+                <path d="M12 1.8c.7 4.9 3.5 7.7 8.4 8.4v3.6c-4.9.7-7.7 3.5-8.4 8.4h-3.6c-.7-4.9-3.5-7.7-8.4-8.4V9.8c4.9-.7 7.7-3.5 8.4-8.4h3.6Z" />
+              </svg>
+            </span>
+            <span className="text-[2rem] font-black tracking-tight text-foreground md:text-[2.75rem]">
+              Darsak <span className="text-[#9178E6]">AI</span>
+            </span>
+          </div>
           {workbenchEntryEnabled ? (
             <div
               className="absolute left-full top-0 ml-1.5 mt-[10px] md:ml-2 md:mt-[14px]"
@@ -1672,7 +1680,7 @@ function HomePage() {
 
       {/* Footer — flows with content, at the very end */}
       <div className="home-footer mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        OpenMAIC Open Source Project
+        Darsak AI · v4
       </div>
     </div>
   );
