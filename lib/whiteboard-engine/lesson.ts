@@ -338,6 +338,52 @@ function dropUnlabeledShapes(draws: DrawCommand[]): DrawCommand[] {
 }
 
 /**
+ * The board is cumulative: beats add to it and nothing is erased between
+ * them. When a later beat re-draws a line that is already on the board (the
+ * model loves to re-state `def` while explaining `return`), the sheet ends up
+ * with the same function twice and reads as a mistake. A line is the same
+ * mark only when its text, tone and colour match — a corrected line in a
+ * common-mistake step differs in text or colour and stays.
+ *
+ * A highlight that pointed at a dropped copy follows the copy that is
+ * actually on the board; if that copy has no id there is nothing to
+ * underline, so the highlight is dropped with it.
+ */
+function dedupeRepeatedCode(beats: LessonBeat[]): LessonBeat[] {
+  const seen = new Map<string, string | undefined>();
+
+  return beats.map((beat) => {
+    let changed = false;
+    const droppedIds = new Map<string, string | undefined>();
+    const draws: DrawCommand[] = [];
+
+    for (const cmd of beat.draws) {
+      if (cmd.op !== 'CODE') {
+        draws.push(cmd);
+        continue;
+      }
+      const key = `${cmd.tone}\u0000${cmd.color ?? ''}\u0000${cmd.text.replace(/\s+$/, '')}`;
+      if (!seen.has(key)) {
+        seen.set(key, cmd.id);
+        draws.push(cmd);
+        continue;
+      }
+      changed = true;
+      if (cmd.id) droppedIds.set(cmd.id, seen.get(key));
+    }
+
+    if (!changed) return beat;
+
+    const kept = draws.flatMap((cmd): DrawCommand[] => {
+      if (cmd.op !== 'HIGHLIGHT' || !cmd.target || !droppedIds.has(cmd.target)) return [cmd];
+      const target = droppedIds.get(cmd.target);
+      return target ? [{ ...cmd, target }] : [];
+    });
+    return { ...beat, draws: kept };
+  });
+}
+
+/**
  * Validate the teaching model's JSON into a Lesson. Invalid beats are
  * dropped; invalid draw commands inside a beat are filtered out.
  */
@@ -400,9 +446,10 @@ export function parseLesson(input: unknown, options: LayoutOptions = {}): Parsed
   });
 
   if (beats.length === 0) return null;
-  layoutBeats(beats, options.startY);
+  const unique = dedupeRepeatedCode(beats);
+  layoutBeats(unique, options.startY);
   return {
-    lesson: { title: parsed.data.title.trim(), beats },
+    lesson: { title: parsed.data.title.trim(), beats: unique },
     dropped,
   };
 }
