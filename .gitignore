@@ -109,3 +109,4 @@ render-service/.owner-bound-parent-*/
 /.verify
 /verify-live.mjs
 /verify-live2.mjs
+/verify-rtl.mjs
