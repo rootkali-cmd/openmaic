@@ -15,6 +15,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { AgentRegistryInit } from '@/components/agent-registry-init';
 import { ModelSettingsInit } from '@/components/model-settings-init';
 import { StorageHealthNotice } from '@/components/storage-health-notice';
+import { StatsSyncInit } from '@/components/stats-sync-init';
 import { AccessCodeGuard } from '@/components/access-code-guard';
 import { ProSwapWatcher } from '@/components/workbench/ProSwapWatcher';
 import { loadLocaleResource } from '@/lib/i18n/load-resource';
@@ -57,8 +58,7 @@ export const metadata: Metadata = {
     default: 'Darsak AI · دارس',
     template: '%s · Darsak AI',
   },
-  description:
-    'دارس: مدرّس ذكي يشرح على السبورة خطوة بخطوة، ويجاوب أسئلتك بالعربي في نفس الصفحة.',
+  description: 'دارس: مدرّس ذكي يشرح على السبورة خطوة بخطوة، ويجاوب أسئلتك بالعربي في نفس الصفحة.',
 };
 
 export default async function RootLayout({
@@ -77,11 +77,7 @@ export default async function RootLayout({
   const { initialMobileLayout } = identifyRequestDevice(headerStore.get('user-agent'));
 
   return (
-    <html
-      lang={locale}
-      dir={isRtlLocale(locale) ? 'rtl' : 'ltr'}
-      suppressHydrationWarning
-    >
+    <html lang={locale} dir={isRtlLocale(locale) ? 'rtl' : 'ltr'} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
@@ -95,6 +91,7 @@ export default async function RootLayout({
               <ModelSettingsInit />
               <AgentRegistryInit />
               <ProSwapWatcher />
+              <StatsSyncInit />
               <AccessCodeGuard>{children}</AccessCodeGuard>
               <Toaster position="top-center" />
               {/* After the Toaster: this one raises a toast on mount when

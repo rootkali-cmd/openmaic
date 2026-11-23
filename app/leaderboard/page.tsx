@@ -16,6 +16,7 @@ import {
   Play,
   Timer,
   Trophy,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -52,6 +53,18 @@ const EMPTY: Stats = {
   days: [],
 };
 
+interface SharedRow {
+  rank: number;
+  name: string;
+  universityNameAr: string | null;
+  major: string | null;
+  lessons: number;
+  quizzes: number;
+  focusMinutes: number;
+  average: number | null;
+  isMe: boolean;
+}
+
 function readStats(): Stats {
   const attempts = getQuizAttempts();
   const answered = attempts.reduce((sum, item) => sum + item.correct, 0);
@@ -70,6 +83,8 @@ export default function LeaderboardPage() {
   const { t } = useI18n();
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
+  const [shared, setShared] = useState<SharedRow[]>([]);
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     const load = () => {
@@ -82,6 +97,31 @@ export default function LeaderboardPage() {
     return () => {
       window.removeEventListener(STUDY_DATA_EVENT, load);
       window.removeEventListener('storage', load);
+    };
+  }, []);
+
+  // Cross-user ranking from the Darsak API (real synced activity only).
+  // Refresh on mount, on local activity, and periodically while visible.
+  useEffect(() => {
+    let cancelled = false;
+    const loadBoard = () => {
+      void fetch('/api/host/leaderboard', { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { rows?: SharedRow[]; signedIn?: boolean } | null) => {
+          if (cancelled || !data) return;
+          setShared(Array.isArray(data.rows) ? data.rows : []);
+          setSignedIn(Boolean(data.signedIn));
+        })
+        .catch(() => undefined);
+    };
+    loadBoard();
+    const onActivity = () => window.setTimeout(loadBoard, 3000);
+    const interval = window.setInterval(loadBoard, 15000);
+    window.addEventListener(STUDY_DATA_EVENT, onActivity);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener(STUDY_DATA_EVENT, onActivity);
     };
   }, []);
 
@@ -126,8 +166,9 @@ export default function LeaderboardPage() {
               <div className="min-w-0 flex-1">
                 <h1 className="text-[18px] font-black text-white">تقدمك انت</h1>
                 <p className="mt-1 max-w-xl text-[11.5px] leading-6 text-white/50">
-                  كل رقم هنا جاي من نشاطك الحقيقي على الجهاز ده — مفيش نقاط ولا ترتيب
-                  بين طلاب قبل ما الحسابات تتزامن.
+                  {signedIn
+                    ? 'كل رقم هنا جاي من نشاطك الحقيقي، والترتيب تحت بيجمع نفس النشاط من كل الطلاب المسجّلين — مفيش نقاط متخترعة.'
+                    : 'كل رقم هنا جاي من نشاطك الحقيقي على الجهاز ده. سجّل من دارس عشان نشاطك يتحسب في ترتيب الطلاب.'}
                 </p>
               </div>
               {stats.streak > 0 ? (
@@ -262,6 +303,62 @@ export default function LeaderboardPage() {
               </ul>
             </section>
           </div>
+
+          <section className="mt-4 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-[13px] font-bold text-white">
+                <Users className="size-4 text-[#9178E6]" aria-hidden />
+                ترتيب الطلاب
+              </h2>
+              <span className="text-[10px] text-white/35">
+                {signedIn ? 'نشاط حقيقي متزامن من الحسابات' : 'سجّل عشان تظهر في الترتيب'}
+              </span>
+            </div>
+            {shared.length === 0 ? (
+              <p className="mt-4 text-[11.5px] leading-6 text-white/45">
+                لسه مفيش نشاط متزامن من طلاب تانيين. أول ما حد يسجّل ويذاكر، هيظهر هنا بترتيب حقيقي.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-1.5">
+                {shared.map((row) => (
+                  <li
+                    key={`${row.rank}-${row.name}`}
+                    className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
+                      row.isMe ? 'bg-[#9178E6]/[0.14] ring-1 ring-[#9178E6]/40' : 'bg-white/[0.02]'
+                    }`}
+                  >
+                    <span
+                      className={`grid size-7 shrink-0 place-items-center rounded-lg text-[11px] font-black tabular-nums ${
+                        row.rank <= 3
+                          ? 'bg-[#FFD84D]/15 text-[#FFE9A3]'
+                          : 'bg-white/[0.05] text-white/40'
+                      }`}
+                    >
+                      {row.rank}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11.5px] font-semibold text-white/85">
+                        {row.name}
+                        {row.isMe ? ' (انت)' : ''}
+                      </span>
+                      <span className="block truncate text-[9.5px] text-white/35">
+                        {[row.universityNameAr, row.major].filter(Boolean).join(' · ') || 'طالب'}
+                      </span>
+                    </span>
+                    <span className="text-end text-[9.5px] leading-4 text-white/45">
+                      <span className="block font-bold text-white/75">
+                        {row.focusMinutes} د تركيز
+                      </span>
+                      <span className="block">
+                        {row.lessons} درس · {row.quizzes} اختبار
+                        {row.average !== null ? ` · ${row.average}%` : ''}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <div className="mt-4 flex flex-wrap gap-2">
             <button
