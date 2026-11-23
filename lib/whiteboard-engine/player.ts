@@ -143,7 +143,14 @@ let lessonSeq = 0;
 function stampBeats(lesson: Lesson): LessonBeat[] {
   lessonSeq += 1;
   const stamp = `L${lessonSeq.toString(36)}-`;
-  return lesson.beats.map((beat) => ({ ...beat, id: `${stamp}${beat.id}` }));
+  // Saved lessons are stored as `{ speech, draws }` only, so a beat can arrive
+  // without an id. Fall back to its index: without that every beat shares the
+  // stamped "…undefined" id and later beats overwrite earlier drawings on the
+  // board (replay used to lose the title and the roadmap).
+  return lesson.beats.map((beat, index) => ({
+    ...beat,
+    id: `${stamp}${beat.id ?? `b${index}`}`,
+  }));
 }
 
 /** Structural commands mutate the list; everything else becomes an element. */
@@ -156,7 +163,7 @@ function isStructural(op: string): boolean {
  * replayed beat upserts instead of duplicating.
  */
 function ensureId(raw: LessonBeat['draws'][number], beatId: string, slot: number) {
-  if (isStructural(raw.op) || 'id' in raw && raw.id) return raw;
+  if (isStructural(raw.op) || ('id' in raw && raw.id)) return raw;
   return { ...raw, id: `${beatId}s${slot}` } as LessonBeat['draws'][number];
 }
 
@@ -229,11 +236,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         nextSlotAt: 0,
       },
     });
-    const queue = [
-      ...state.queue.slice(0, insertAt),
-      ...reply,
-      ...state.queue.slice(insertAt),
-    ];
+    const queue = [...state.queue.slice(0, insertAt), ...reply, ...state.queue.slice(insertAt)];
     cancelSpeech();
     set({ queue, status: 'playing', title: state.title || lesson.title });
     get()._enterBeat(insertAt);
