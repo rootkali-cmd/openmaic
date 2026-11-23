@@ -64,6 +64,17 @@ export async function syncStudyCounters(
   return response.ok;
 }
 
+/** Remove the student's synced counters (ranking opt-out); false on failure. */
+export async function removeStudyStats(clerkId: string): Promise<boolean> {
+  const assertion = await statsAssertion(clerkId);
+  const response = await fetch(`${API_BASE}/v1/stats/me`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${assertion}` },
+    cache: 'no-store',
+  });
+  return response.ok;
+}
+
 export interface LeaderboardRow {
   rank: number;
   name: string;

@@ -1,11 +1,13 @@
 'use client';
 
 /**
- * لوحة الصدارة — personal progress built only from real local activity.
+ * لوحة الصدارة — personal progress built only from real local activity, plus
+ * the cross-user ranking synced from signed-in students' genuine counters.
  *
- * There is no shared account store behind the app yet, so this page does not
- * claim a cross-user ranking. It shows the student's own lessons, focus time,
- * quiz scores and a real weekly activity chart.
+ * The personal card shows the student's own lessons, focus time, quiz scores
+ * and a real weekly activity chart. Participation in the shared ranking is
+ * optional: the toggle below stops syncing and removes the student's synced
+ * row, while local study data stays on the device.
  */
 import {
   ArrowLeft,
@@ -30,6 +32,10 @@ import {
   getFocusSessions,
   getLessons,
   getQuizAttempts,
+  isStatsSyncDisabled,
+  setStatsSyncDisabled,
+  STATS_OPT_OUT_KEY,
+  STATS_SYNC_EVENT,
   STUDY_DATA_EVENT,
   totalFocusMinutes,
   type DayBucket,
@@ -85,6 +91,7 @@ export default function LeaderboardPage() {
   const [hydrated, setHydrated] = useState(false);
   const [shared, setShared] = useState<SharedRow[]>([]);
   const [signedIn, setSignedIn] = useState(false);
+  const [syncOff, setSyncOff] = useState(false);
 
   useEffect(() => {
     const load = () => {
@@ -99,6 +106,26 @@ export default function LeaderboardPage() {
       window.removeEventListener('storage', load);
     };
   }, []);
+
+  // Ranking participation is a device-local choice; read it after mount and
+  // follow toggles from this tab or another one.
+  useEffect(() => {
+    const readFlag = () => setSyncOff(isStatsSyncDisabled());
+    readFlag();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === STATS_OPT_OUT_KEY) readFlag();
+    };
+    window.addEventListener(STATS_SYNC_EVENT, readFlag);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(STATS_SYNC_EVENT, readFlag);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  const toggleSync = () => {
+    setStatsSyncDisabled(!syncOff);
+  };
 
   // Cross-user ranking from the Darsak API (real synced activity only).
   // Refresh on mount, on local activity, and periodically while visible.
@@ -115,13 +142,24 @@ export default function LeaderboardPage() {
         .catch(() => undefined);
     };
     loadBoard();
-    const onActivity = () => window.setTimeout(loadBoard, 3000);
+    let refreshTimer: number | null = null;
+    const refreshSoon = (delay: number) => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(loadBoard, delay);
+    };
+    const onActivity = () => refreshSoon(3000);
+    // After a participation toggle the hook pushes/removes the row; give it
+    // a moment, then show the ranking with the change applied.
+    const onSyncToggle = () => refreshSoon(2500);
     const interval = window.setInterval(loadBoard, 15000);
     window.addEventListener(STUDY_DATA_EVENT, onActivity);
+    window.addEventListener(STATS_SYNC_EVENT, onSyncToggle);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       window.removeEventListener(STUDY_DATA_EVENT, onActivity);
+      window.removeEventListener(STATS_SYNC_EVENT, onSyncToggle);
     };
   }, []);
 
@@ -314,6 +352,34 @@ export default function LeaderboardPage() {
                 {signedIn ? 'نشاط حقيقي متزامن من الحسابات' : 'سجّل عشان تظهر في الترتيب'}
               </span>
             </div>
+            {signedIn ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                <span className="min-w-0 text-[11px] font-semibold leading-5 text-white/70">
+                  أظهر اسمي في ترتيب الطلاب
+                  <span className="block text-[9.5px] font-normal leading-4 text-white/35">
+                    {syncOff
+                      ? 'المزامنة متوقفة واسمك مش ظاهر لحد — نشاطك لسه محفوظ على جهازك.'
+                      : 'نشاطك الحقيقي بيتزامن مع الترتيب تلقائيًا.'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!syncOff}
+                  aria-label="أظهر اسمي في ترتيب الطلاب"
+                  onClick={toggleSync}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                    syncOff ? 'bg-white/[0.12]' : 'bg-[#00C386]'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${
+                      syncOff ? 'start-0.5' : 'end-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            ) : null}
             {shared.length === 0 ? (
               <p className="mt-4 text-[11.5px] leading-6 text-white/45">
                 لسه مفيش نشاط متزامن من طلاب تانيين. أول ما حد يسجّل ويذاكر، هيظهر هنا بترتيب حقيقي.

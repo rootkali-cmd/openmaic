@@ -2,8 +2,9 @@
  * Local study data — the source of truth the in-app sections read from.
  *
  * Lessons, quiz attempts, focus sessions and study plans are kept in this
- * browser only. Nothing here invents cross-user numbers: the leaderboard is a
- * personal progress view until accounts and a shared store exist.
+ * browser only. Nothing here invents cross-user numbers: the shared ranking
+ * is an ordering of the real counters synced from signed-in students, and
+ * participation can be switched off (see STATS_OPT_OUT_KEY below).
  */
 export interface LessonRecord {
   id: string;
@@ -57,6 +58,36 @@ const PLANS_KEY = 'darsak-study-plans';
 
 /** Fired on window whenever one of the stores changes in this tab. */
 export const STUDY_DATA_EVENT = 'darsak-study-data';
+
+/**
+ * Ranking opt-out. When set, the device stops syncing its counters to the
+ * shared leaderboard and asks the server to remove the ones already synced.
+ * Local study data is untouched — only the public sharing stops.
+ */
+export const STATS_OPT_OUT_KEY = 'darsak-stats-opt-out';
+
+/** Fired on window when the student toggles ranking participation. */
+export const STATS_SYNC_EVENT = 'darsak-stats-sync-toggle';
+
+export function isStatsSyncDisabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(STATS_OPT_OUT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setStatsSyncDisabled(disabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (disabled) window.localStorage.setItem(STATS_OPT_OUT_KEY, '1');
+    else window.localStorage.removeItem(STATS_OPT_OUT_KEY);
+  } catch {
+    /* storage unavailable — the toggle still applies to this page's state */
+  }
+  window.dispatchEvent(new Event(STATS_SYNC_EVENT));
+}
 
 function read<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -182,9 +213,7 @@ export function togglePlanTask(planId: string, taskId: string): void {
   if (!plan) return;
   savePlan({
     ...plan,
-    tasks: plan.tasks.map((task) =>
-      task.id === taskId ? { ...task, done: !task.done } : task,
-    ),
+    tasks: plan.tasks.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)),
   });
 }
 
@@ -233,7 +262,11 @@ export function activityByDay(days = 7): DayBucket[] {
 
 /** Consecutive days (ending today or yesterday) with any recorded activity. */
 export function currentStreak(): number {
-  const days = new Set(activityByDay(60).filter((day) => day.total > 0).map((day) => day.key));
+  const days = new Set(
+    activityByDay(60)
+      .filter((day) => day.total > 0)
+      .map((day) => day.key),
+  );
   let streak = 0;
   for (let offset = 0; offset < 60; offset += 1) {
     const date = new Date();

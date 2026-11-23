@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { clerkIdOf, syncStudyCounters } from '@/lib/server/host-stats';
+import { clerkIdOf, removeStudyStats, syncStudyCounters } from '@/lib/server/host-stats';
 import { withRequestOwner } from '@/lib/server/identity/with-owner';
 
 export const runtime = 'nodejs';
@@ -37,6 +37,27 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ synced }, { headers: responseHeaders });
     } catch {
       return Response.json({ synced: false }, { headers: responseHeaders });
+    }
+  });
+}
+
+/**
+ * `DELETE /api/host/stats`: opt out of the shared ranking. Removes the
+ * signed-in student's synced counters from the Darsak API so their name and
+ * activity stop appearing in the leaderboard. Anonymous owners have nothing
+ * synced, so the call is acknowledged without a remote delete.
+ */
+export async function DELETE(request: Request): Promise<Response> {
+  return withRequestOwner(request, async (principal, responseHeaders) => {
+    const clerkId = clerkIdOf(principal.ownerId, principal.kind);
+    if (!clerkId) {
+      return Response.json({ removed: false }, { headers: responseHeaders });
+    }
+    try {
+      const removed = await removeStudyStats(clerkId);
+      return Response.json({ removed }, { headers: responseHeaders });
+    } catch {
+      return Response.json({ removed: false }, { headers: responseHeaders });
     }
   });
 }
