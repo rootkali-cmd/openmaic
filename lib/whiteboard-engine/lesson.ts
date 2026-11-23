@@ -45,6 +45,12 @@ export interface Lesson {
 const SAFE_X = 56;
 const SAFE_TOP = 44;
 const BEAT_GAP = 40;
+/**
+ * Left edge of the code column. Code lines are one program, so they share a
+ * margin instead of each beat centring separately (which made `def`, the
+ * indented body and the call sit at three different x positions).
+ */
+const CODE_LEFT = 120;
 
 function shiftCommand(cmd: DrawCommand, dx: number, dy: number): DrawCommand {
   switch (cmd.op) {
@@ -162,7 +168,28 @@ function layoutBeats(beats: LessonBeat[], startY = SAFE_TOP): void {
     if (width > column) dx = SAFE_X - minX;
 
     const dy = Math.round(cursorY - minY);
-    beat.draws = beat.draws.map((cmd) => shiftCommand(cmd, dx, dy));
+    // A beat with code is part of one program: put its CODE lines on the
+    // shared code column instead of centring them. The beat's Arabic
+    // explanation keeps the centred position, so a long line never drags the
+    // program off the paper.
+    const codeBoxes = beat.draws
+      .filter((cmd) => cmd.op === 'CODE')
+      .map((cmd) => commandBBox(cmd))
+      .filter((box): box is BBox => Boolean(box));
+    let codeShift: number | null = null;
+    if (codeBoxes.length > 0) {
+      const codeMinX = Math.min(...codeBoxes.map((box) => box.x));
+      const codeMaxX = Math.max(...codeBoxes.map((box) => box.x + box.w));
+      codeShift = Math.round(CODE_LEFT - codeMinX);
+      if (codeMaxX + codeShift > BOARD_WIDTH - SAFE_X) {
+        codeShift -= codeMaxX + codeShift - (BOARD_WIDTH - SAFE_X);
+      }
+      if (codeMinX + codeShift < SAFE_X) codeShift += SAFE_X - (codeMinX + codeShift);
+    }
+
+    beat.draws = beat.draws.map((cmd) =>
+      shiftCommand(cmd, cmd.op === 'CODE' && codeShift !== null ? codeShift : dx, dy),
+    );
     cursorY += Math.round(maxY - minY) + BEAT_GAP;
   }
 }
