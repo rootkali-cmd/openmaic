@@ -28,8 +28,11 @@ export interface ShellNavItem {
 }
 
 export const SHELL_NAV_ITEMS: ShellNavItem[] = [
-  { key: 'courses', icon: BookOpen, href: '/' },
-  { key: 'tutor', icon: MessageSquare, href: '/tutor' },
+  // The AI chat is the app's home. The classroom/home surface that lived at
+  // `/` moved to `/classrooms` so its folders and generation tools stay
+  // reachable without being the first thing a student sees.
+  { key: 'courses', icon: MessageSquare, href: '/' },
+  { key: 'classrooms', icon: BookOpen, href: '/classrooms' },
   { key: 'board', icon: PenLine, href: '/whiteboard' },
   { key: 'search', icon: Search, href: '/search' },
   {
@@ -50,10 +53,7 @@ export function activeNavKey(pathname: string | null): string | null {
   if (exact) return exact.key;
   const prefix = SHELL_NAV_ITEMS.find(
     (item) =>
-      !item.external &&
-      item.href &&
-      item.href !== '/' &&
-      pathname.startsWith(`${item.href}/`),
+      !item.external && item.href && item.href !== '/' && pathname.startsWith(`${item.href}/`),
   );
   return prefix?.key ?? null;
 }

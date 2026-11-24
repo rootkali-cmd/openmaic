@@ -14,8 +14,11 @@
  */
 import { useEffect, type ReactNode } from 'react';
 
+import { DarsakCompanion } from '@/components/mascot/darsak-companion';
+
 import { useNavCollapsed } from './nav-collapsed';
 import { ShellSidebar } from './sidebar';
+import { StudyTimer } from './study-timer';
 import { ShellTopbar } from './topbar';
 
 export function AppShell({
@@ -40,7 +43,7 @@ export function AppShell({
 
   return (
     <div
-      className="darsak-shell relative h-screen w-full overflow-hidden bg-[#0B0D16]"
+      className="darsak-shell relative h-screen w-full overflow-hidden bg-[#090c18]"
       style={{ ['--darsak-rail' as string]: collapsed ? '76px' : '236px' }}
     >
       <ShellSidebar />
@@ -50,12 +53,12 @@ export function AppShell({
         }`}
       >
         <ShellTopbar title={title} actions={actions} />
-        <main
-          className={`darsak-shell-content relative min-h-0 flex-1 ${contentClassName ?? ''}`}
-        >
+        <main className={`darsak-shell-content relative min-h-0 flex-1 ${contentClassName ?? ''}`}>
           {children}
         </main>
       </div>
+      <DarsakCompanion />
+      <StudyTimer />
     </div>
   );
 }

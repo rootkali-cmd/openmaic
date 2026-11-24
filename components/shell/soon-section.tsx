@@ -41,7 +41,7 @@ export function SoonSection({
       type="button"
       onClick={soon}
       title={t('shell.soon')}
-      className="hidden items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[12px] font-bold text-[#0B0D16] transition hover:bg-white/90 sm:flex"
+      className="hidden items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[12px] font-bold text-[#090c18] transition hover:bg-white/90 sm:flex"
     >
       <Plus className="size-3.5" aria-hidden />
       {t(actionKey)}
@@ -64,7 +64,7 @@ export function SoonSection({
         type="button"
         onClick={soon}
         title={t('shell.soon')}
-        className="mt-7 rounded-full bg-white px-6 py-2.5 text-[13px] font-bold text-[#0B0D16] transition hover:bg-white/90"
+        className="mt-7 rounded-full bg-white px-6 py-2.5 text-[13px] font-bold text-[#090c18] transition hover:bg-white/90"
       >
         {t(ctaKey)}
       </button>

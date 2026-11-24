@@ -74,6 +74,19 @@ function formatClock(ms: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+/**
+ * Compact duration for the floating dial: `1h30`, `25m`, `45s`. Latin unit
+ * letters keep the numeric line readable beside the countdown.
+ */
+function formatShort(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  if (hours > 0) return `${hours}h${String(minutes).padStart(2, '0')}`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${total % 60}s`;
+}
+
 export function StudyTimer() {
   const { t } = useI18n();
   const [state, setState] = useState<TimerState>(DEFAULT_STATE);
@@ -192,35 +205,18 @@ export function StudyTimer() {
     reset();
   };
 
-  return (
-    <div ref={wrapperRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        title={t('shell.focus.title')}
-        className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] tabular-nums ring-1 transition ${
-          state.running
-            ? 'bg-[#00C386]/15 text-[#7BE8BE] ring-[#00C386]/35 hover:bg-[#00C386]/25'
-            : 'bg-white/[0.05] text-white/65 ring-white/[0.06] hover:bg-white/[0.09]'
-        }`}
-      >
-        <Timer
-          className={`size-3.5 ${state.running ? 'text-[#00C386]' : 'text-[#9178E6]'}`}
-          aria-hidden
-        />
-        <span dir="ltr">{hydrated ? formatClock(remaining) : formatClock(state.durationMs)}</span>
-        {state.running ? (
-          <span className="size-1.5 animate-pulse rounded-full bg-[#00C386]" aria-hidden />
-        ) : null}
-      </button>
+  // The dial fills with the session as it elapses; idle it sits as a quiet
+  // timer icon so it never competes with the page.
+  const dialProgress = Math.min(1, Math.max(0, progress));
+  const showTime = hydrated && (state.running || started || finished);
 
+  return (
+    <div ref={wrapperRef} className="fixed bottom-5 end-4 z-40 md:bottom-6 md:end-6">
       {open ? (
         <div
           role="dialog"
           aria-label={t('shell.focus.title')}
-          className="absolute end-0 top-[calc(100%+10px)] z-50 w-[min(320px,calc(100vw-24px))] rounded-2xl border border-white/10 bg-[#141722] p-4 text-start shadow-[0_30px_80px_-30px_rgba(0,0,0,0.95)]"
+          className="absolute bottom-[calc(100%+12px)] end-0 z-50 w-[min(320px,calc(100vw-24px))] rounded-2xl border border-white/10 bg-[#12141f] p-4 text-start shadow-[0_30px_80px_-30px_rgba(0,0,0,0.95)]"
         >
           <div className="flex items-center gap-2">
             <span className="grid size-8 place-items-center rounded-xl bg-[#9178E6]/15 text-[#B9A8FF]">
@@ -346,6 +342,59 @@ export function StudyTimer() {
           </div>
         </div>
       ) : null}
+
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        title={t('shell.focus.title')}
+        className={`group relative grid size-14 place-items-center rounded-full border text-white shadow-[0_18px_44px_-16px_rgba(0,0,0,0.85)] backdrop-blur transition hover:scale-[1.04] active:scale-95 ${
+          state.running ? 'border-[#00C386]/40 bg-[#0E1A17]/90' : 'border-white/10 bg-[#12141f]/90'
+        }`}
+      >
+        {/* Elapsed progress ring — conic so it needs no SVG maths. */}
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `conic-gradient(${
+              state.running ? '#00C386' : '#9178E6'
+            } ${dialProgress * 360}deg, rgba(255,255,255,0.07) 0)`,
+            opacity: showTime ? 1 : 0,
+            transition: 'opacity 200ms',
+          }}
+        />
+        <span
+          aria-hidden
+          className={`absolute inset-[3px] rounded-full ${
+            state.running ? 'bg-[#0C1512]' : 'bg-[#12141f]'
+          }`}
+        />
+        <span className="relative flex flex-col items-center leading-none">
+          {showTime ? (
+            <span
+              dir="ltr"
+              className={`text-[12.5px] font-black tabular-nums ${
+                state.running ? 'text-[#7BE8BE]' : 'text-white/80'
+              }`}
+            >
+              {formatShort(remaining)}
+            </span>
+          ) : (
+            <Timer
+              className="size-5 text-[#B9A8FF] transition group-hover:text-white"
+              aria-hidden
+            />
+          )}
+        </span>
+        {state.running ? (
+          <span
+            className="absolute -top-0.5 -end-0.5 size-2.5 animate-pulse rounded-full bg-[#00C386] ring-2 ring-[#090c18]"
+            aria-hidden
+          />
+        ) : null}
+      </button>
     </div>
   );
 }

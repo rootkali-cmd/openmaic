@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Tajawal } from 'next/font/google';
 import { AdaptiveProvider } from '@/lib/adaptive/adaptive-provider';
 import { identifyRequestDevice } from '@/lib/adaptive/request-device';
 import { cookies, headers } from 'next/headers';
@@ -36,6 +37,18 @@ import { isRtlLocale } from '@/lib/i18n/types';
 // `--font-sans` moves to globals.css since the family no longer comes from
 // next/font's generated class.
 import '@fontsource-variable/inter';
+
+/**
+ * Display face for headings — the same Tajawal the Darsak landing site uses,
+ * so section titles keep one identity across both apps. Body copy stays on
+ * Cairo (see `--font-arabic` in globals.css), which is the site's body face.
+ */
+const tajawal = Tajawal({
+  subsets: ['arabic', 'latin'],
+  weight: ['400', '500', '700', '800'],
+  variable: '--font-tajawal',
+  display: 'swap',
+});
 
 /**
  * Applies the dark theme before the first paint. `ThemeProvider` resolves the
@@ -82,7 +95,7 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${tajawal.variable} antialiased`}
         suppressHydrationWarning
       >
         <AdaptiveProvider initialMobileLayout={initialMobileLayout}>

@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { DarsakMascot } from '@/components/mascot/darsak-mascot';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { DARSAK_LOGIN_URL, DARSAK_PRICING_URL } from '@/lib/site-links';
 
@@ -59,19 +60,21 @@ export function ShellSidebar() {
     };
   }, []);
 
-  const displayName = profile
-    ? profile.name ?? profile.email?.split('@')[0] ?? 'طالب دارس'
-    : '';
+  const displayName = profile ? (profile.name ?? profile.email?.split('@')[0] ?? 'طالب دارس') : '';
   const initial = displayName.trim().charAt(0) || 'د';
   const toggleLabel = collapsed ? 'افتح القائمة' : 'اطوِ القائمة';
 
   return (
     <aside
       data-collapsed={collapsed ? 'true' : 'false'}
-      className={`fixed top-0 start-0 z-40 hidden h-screen flex-col border-e border-white/[0.06] bg-[#0B0D16] transition-[width] duration-200 md:flex ${
+      className={`fixed top-0 start-0 z-40 hidden h-screen flex-col bg-[#090c18] transition-[width] duration-200 md:flex ${
         collapsed ? 'w-[76px]' : 'w-[236px]'
       }`}
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 end-0 w-px bg-gradient-to-b from-transparent via-white/[0.09] to-transparent"
+      />
       {/* Brand + collapse toggle share the top row, inside the rail. */}
       <div
         className={`flex shrink-0 items-center gap-2 pt-5 pb-4 ${
@@ -79,16 +82,12 @@ export function ShellSidebar() {
         }`}
       >
         <Link
-          href="/tutor"
+          href="/"
           className={`flex min-w-0 items-center gap-2.5 ${collapsed ? '' : 'flex-1'}`}
           aria-label={t('shell.home')}
           title={collapsed ? 'Darsak AI' : undefined}
         >
-          <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#9178E6] to-[#5B3FC7] text-white shadow-[0_6px_16px_-8px_#9178E6]">
-            <svg viewBox="0 0 24 24" className="size-4.5" fill="currentColor" aria-hidden>
-              <path d="M12 1.8c.7 4.9 3.5 7.7 8.4 8.4v3.6c-4.9.7-7.7 3.5-8.4 8.4h-3.6c-.7-4.9-3.5-7.7-8.4-8.4V9.8c4.9-.7 7.7-3.5 8.4-8.4h3.6Z" />
-            </svg>
-          </span>
+          <DarsakMascot className="size-9 shrink-0" />
           {collapsed ? null : (
             <span className="truncate text-[15px] font-black tracking-tight text-white">
               Darsak <span className="text-[#9178E6]">AI</span>
@@ -149,16 +148,10 @@ export function ShellSidebar() {
           }`;
           const content = (
             <>
-              <Icon
-                className={`size-4.5 shrink-0 ${active ? 'text-[#9178E6]' : ''}`}
-                aria-hidden
-              />
+              <Icon className={`size-4.5 shrink-0 ${active ? 'text-[#9178E6]' : ''}`} aria-hidden />
               {collapsed ? (
                 active ? (
-                  <span
-                    className="absolute end-0 size-1.5 rounded-full bg-[#9178E6]"
-                    aria-hidden
-                  />
+                  <span className="absolute end-0 size-1.5 rounded-full bg-[#9178E6]" aria-hidden />
                 ) : null
               ) : (
                 <>
@@ -212,13 +205,13 @@ export function ShellSidebar() {
           title={collapsed ? `${t('shell.pro.title')} — ${t('shell.pro.cta')}` : undefined}
         >
           {collapsed ? (
-            <span className="rounded-md bg-[#9178E6] px-1.5 py-0.5 text-[8px] font-black text-[#0B0D16]">
+            <span className="rounded-md bg-[#9178E6] px-1.5 py-0.5 text-[8px] font-black text-[#090c18]">
               PRO
             </span>
           ) : (
             <>
               <div className="flex items-center gap-1.5">
-                <span className="rounded-md bg-[#9178E6] px-1.5 py-0.5 text-[8px] font-black text-[#0B0D16]">
+                <span className="rounded-md bg-[#9178E6] px-1.5 py-0.5 text-[8px] font-black text-[#090c18]">
                   PRO
                 </span>
                 <span className="text-[11.5px] font-semibold text-white/85">
@@ -228,9 +221,7 @@ export function ShellSidebar() {
                   {t('shell.pro.cta')}
                 </span>
               </div>
-              <p className="mt-1.5 text-[10.5px] leading-5 text-white/45">
-                {t('shell.pro.blurb')}
-              </p>
+              <p className="mt-1.5 text-[10.5px] leading-5 text-white/45">{t('shell.pro.blurb')}</p>
             </>
           )}
         </a>
@@ -243,7 +234,11 @@ export function ShellSidebar() {
           >
             <span
               className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#9178E6] to-[#5B3FC7] text-[11px] font-black text-white"
-              title={collapsed ? `${displayName}${profile.email ? ` — ${profile.email}` : ''}` : undefined}
+              title={
+                collapsed
+                  ? `${displayName}${profile.email ? ` — ${profile.email}` : ''}`
+                  : undefined
+              }
             >
               {initial}
             </span>
