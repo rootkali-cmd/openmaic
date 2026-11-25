@@ -619,10 +619,9 @@ html.darsak-shell-page {
 .darsak-shell h1,
 .darsak-shell h2,
 .darsak-shell h3 {
-  font-family: var(--font-display);
-  font-feature-settings:
-    'liga' 1,
-    'calt' 1;
+  /* `@theme inline` tokens are substituted into utilities, not emitted as
+     custom properties, so reference the font variables directly. */
+  font-family: var(--font-tajawal), var(--font-arabic);
 }
 
 html.darsak-shell-page * {
