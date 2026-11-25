@@ -11,7 +11,14 @@
 import { ArrowUp, FileText, GraduationCap, ImagePlus, ListChecks, PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 
 import { DarsakMascot } from '@/components/mascot/darsak-mascot';
 import { AppShell } from '@/components/shell/app-shell';
@@ -27,6 +34,13 @@ interface ChatMessage {
   question?: string;
 }
 
+// Time-of-day greeting plumbing (see the call site): nothing to subscribe to,
+// the browser hour, and a deterministic server hour that maps to the neutral
+// greeting so hydration always agrees.
+const subscribeToNothing = () => () => {};
+const localHour = () => new Date().getHours();
+const serverHour = () => 12;
+
 export default function TutorPage() {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -36,14 +50,17 @@ export default function TutorPage() {
   const nextId = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return t('tutor.greetingMorning');
-    if (hour >= 17 || hour < 5) return t('tutor.greetingEvening');
-    return t('tutor.greeting');
-    // Re-greet when the language changes; hour is read at render time.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale]);
+  // Greeting depends on the student's local clock, but the HTML is rendered on
+  // the server (UTC). useSyncExternalStore keeps the server snapshot stable and
+  // swaps in the browser hour right after hydration, so the two never disagree
+  // — a plain `new Date()` here caused a text hydration mismatch.
+  const hour = useSyncExternalStore(subscribeToNothing, localHour, serverHour);
+  const greeting =
+    hour >= 5 && hour < 12
+      ? t('tutor.greetingMorning')
+      : hour >= 17 || hour < 5
+        ? t('tutor.greetingEvening')
+        : t('tutor.greeting');
 
   // Keep the newest message in view as the conversation grows.
   useEffect(() => {
