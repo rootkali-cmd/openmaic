@@ -82,7 +82,7 @@ export function DarsakCompanion() {
           animate={reduced ? { opacity: 1 } : { x: 0, opacity: 1 }}
           exit={reduced ? { opacity: 0 } : { x: offscreenX, opacity: 0 }}
           transition={reduced ? { duration: 0.2 } : { type: 'spring', stiffness: 210, damping: 24 }}
-          className="pointer-events-none fixed bottom-48 end-4 z-40 flex items-end gap-1.5 md:bottom-44 md:end-6"
+          className="pointer-events-none fixed top-[64px] end-4 z-40 flex items-start gap-1.5 md:end-6"
           role="status"
           aria-live="polite"
         >
