@@ -680,3 +680,23 @@ html.darsak-shell-page *::-webkit-scrollbar-thumb:hover {
     animation: none;
   }
 }
+
+/* Mobile hardening: nothing escapes the frame horizontally. `clip` (not
+   `hidden`) so it never creates a scroll container; `position:fixed` stays
+   viewport-based. Media scales; flex/grid children can shrink. */
+.darsak-shell {
+  overflow-x: clip;
+}
+
+.darsak-shell-content {
+  min-width: 0;
+}
+
+.darsak-shell img {
+  max-width: 100%;
+  height: auto;
+}
+
+.darsak-shell .home-brand {
+  flex-wrap: wrap;
+}
