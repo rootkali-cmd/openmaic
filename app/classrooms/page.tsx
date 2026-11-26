@@ -47,6 +47,8 @@ import { useMobileLayout } from '@/lib/adaptive/adaptive-provider';
 import { installPageScrollBoundary } from '@/lib/adaptive/page-scroll-boundary';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { DarsakMascot } from '@/components/mascot/darsak-mascot';
+import { LanguageToggle } from '@/components/language-toggle';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { createLogger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
@@ -911,14 +913,13 @@ function HomePage() {
             )}
             aria-label="Darsak AI"
           >
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#9178E6] to-[#5B3FC7] text-white shadow-[0_10px_28px_-10px_#9178E6] md:size-16">
-              <svg viewBox="0 0 24 24" className="size-6 md:size-8" fill="currentColor" aria-hidden>
-                <path d="M12 1.8c.7 4.9 3.5 7.7 8.4 8.4v3.6c-4.9.7-7.7 3.5-8.4 8.4h-3.6c-.7-4.9-3.5-7.7-8.4-8.4V9.8c4.9-.7 7.7-3.5 8.4-8.4h3.6Z" />
-              </svg>
-            </span>
+            {/* The Darsak mascot stands in for the old star mark. */}
+            <DarsakMascot className="size-12 shrink-0 md:size-16" />
             <span className="text-[2rem] font-black tracking-tight text-foreground md:text-[2.75rem]">
               Darsak <span className="text-[#9178E6]">AI</span>
             </span>
+            {/* Arabic / English, right next to the brand. */}
+            <LanguageToggle className="ms-1 self-center" />
           </div>
           {workbenchEntryEnabled ? (
             <div

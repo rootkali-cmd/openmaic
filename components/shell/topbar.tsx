@@ -9,6 +9,7 @@
 import type { ReactNode } from 'react';
 
 import { GuestAuthActions } from './guest-auth-actions';
+import { LanguageToggle } from '@/components/language-toggle';
 import { MobileNav } from './mobile-nav';
 
 export function ShellTopbar({ title, actions }: { title: string; actions?: ReactNode }) {
@@ -19,6 +20,7 @@ export function ShellTopbar({ title, actions }: { title: string; actions?: React
 
       <div className="ms-auto flex items-center gap-2">
         {actions}
+        <LanguageToggle />
         <GuestAuthActions />
       </div>
       <span
