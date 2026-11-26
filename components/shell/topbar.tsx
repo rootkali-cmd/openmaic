@@ -8,6 +8,7 @@
  */
 import type { ReactNode } from 'react';
 
+import { GuestAuthActions } from './guest-auth-actions';
 import { MobileNav } from './mobile-nav';
 
 export function ShellTopbar({ title, actions }: { title: string; actions?: ReactNode }) {
@@ -16,7 +17,10 @@ export function ShellTopbar({ title, actions }: { title: string; actions?: React
       <MobileNav />
       <h1 className="shrink-0 truncate text-[15px] font-bold text-white">{title}</h1>
 
-      <div className="ms-auto flex items-center gap-2">{actions}</div>
+      <div className="ms-auto flex items-center gap-2">
+        {actions}
+        <GuestAuthActions />
+      </div>
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"

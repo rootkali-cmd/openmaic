@@ -3222,6 +3222,11 @@
     }
   },
   "shell": {
+      "auth": {
+        "signIn": "Entrar",
+        "signUp": "Criar conta",
+        "landing": "Site do Darsak"
+      },
     "pro": {
       "cta": "See plans →",
       "title": "Darsak Pro",

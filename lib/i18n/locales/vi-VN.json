@@ -3222,6 +3222,11 @@
     }
   },
   "shell": {
+      "auth": {
+        "signIn": "Đăng nhập",
+        "signUp": "Tạo tài khoản",
+        "landing": "Trang web Darsak"
+      },
     "pro": {
       "cta": "See plans →",
       "title": "Darsak Pro",

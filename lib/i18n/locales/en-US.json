@@ -3291,6 +3291,11 @@
     "loadingSlow": "Still thinking — the lesson is on its way"
   },
   "shell": {
+      "auth": {
+        "signIn": "Sign in",
+        "signUp": "Create account",
+        "landing": "Darsak website"
+      },
     "nav": {
       "tutor": "Tutor",
       "board": "Smart Whiteboard",

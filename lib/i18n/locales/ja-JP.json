@@ -3222,6 +3222,11 @@
     }
   },
   "shell": {
+      "auth": {
+        "signIn": "ログイン",
+        "signUp": "アカウント作成",
+        "landing": "Darsakウェブサイト"
+      },
     "pro": {
       "cta": "See plans →",
       "title": "Darsak Pro",

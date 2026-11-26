@@ -3222,6 +3222,11 @@
     }
   },
   "shell": {
+      "auth": {
+        "signIn": "登录",
+        "signUp": "创建账户",
+        "landing": "Darsak网站"
+      },
     "pro": {
       "cta": "See plans →",
       "title": "Darsak Pro",
