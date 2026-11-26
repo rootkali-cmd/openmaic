@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Focus timer — the tappable chip in the top bar.
+ * Focus timer — a floating dial in the shell.
  *
  * Knowunity's study timer opens a small panel where the length is chosen
  * before starting; this is the same interaction with our own minimum: 10
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { addFocusSession } from '@/lib/study-data';
+import { playTimerChime } from '@/lib/timer-chime';
 
 const STORAGE_KEY = 'darsak-focus-timer-v1';
 export const FOCUS_OPEN_EVENT = 'darsak-focus-open';
@@ -129,6 +130,8 @@ export function StudyTimer() {
           minutes: Math.round(state.durationMs / 60_000),
           completed: true,
         });
+        // A soft chime marks the end, alongside the toast.
+        playTimerChime();
         toast.success(t('shell.focus.done'));
       }
     };
