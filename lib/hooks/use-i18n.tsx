@@ -6,6 +6,7 @@ import { type Locale, defaultLocale } from '@/lib/i18n';
 import i18n from '@/lib/i18n/config';
 import { loadLocaleResource, type TranslationResource } from '@/lib/i18n/load-resource';
 import { LOCALE_COOKIE, localeCookie, matchLocale } from '@/lib/i18n/resolve-locale';
+import { isRtlLocale } from '@/lib/i18n/types';
 
 type I18nContextType = {
   locale: Locale;
@@ -106,6 +107,9 @@ export function I18nProvider({
       await i18n.changeLanguage(newLocale);
       if (requestedLocale.current !== newLocale) return;
       document.documentElement.lang = newLocale;
+      // `<html dir>` is server-rendered once; switching languages in the
+      // browser has to flip text direction too, or English stays in RTL.
+      document.documentElement.dir = isRtlLocale(newLocale) ? 'rtl' : 'ltr';
       setLocaleState(newLocale);
     };
     apply().catch((error) => console.error('[i18n] Language switch failed.', error));
