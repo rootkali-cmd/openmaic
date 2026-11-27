@@ -11,6 +11,7 @@
  */
 import { Pause, Play, RotateCcw, Square, Timer } from 'lucide-react';
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 
 import { useI18n } from '@/lib/hooks/use-i18n';
@@ -298,7 +299,7 @@ export function StudyTimer() {
     });
   };
 
-  return (
+  const content = (
     // Clickable + draggable to anywhere; remembers position. Default corner otherwise.
     <div
       ref={wrapperRef}
@@ -506,4 +507,11 @@ export function StudyTimer() {
       </button>
     </div>
   );
+
+  // Portal to <body> so `position:fixed` is viewport-relative and not trapped
+  // by an ancestor's overflow/transform containing block.
+  if (hydrated && typeof document !== 'undefined') {
+    return createPortal(content, document.body);
+  }
+  return content;
 }
