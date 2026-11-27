@@ -72,7 +72,7 @@ export function LessonStatus() {
       </span>
 
       <span
-        className={`mono rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] tabular-nums text-white/50 ${
+        className={`mono hidden rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] tabular-nums text-white/50 sm:inline-block ${
           active ? '' : 'opacity-50'
         }`}
       >

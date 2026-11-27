@@ -792,11 +792,15 @@ function HomePage() {
           <Menu size={22} />
         </button>
       )}
-      {/* Shared language, theme and desktop settings controls. */}
-      <div
-        ref={toolbarRef}
-        className="home-top-tools fixed top-[64px] right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
-      >
+      {/* Shared language, theme and desktop settings controls. On a phone the
+          shell top bar already carries language + navigation, and this fixed
+          cluster sat on top of the companion toast — so it stays desktop-only.
+          Settings are still reachable from the composer's toolbar. */}
+      {!mobile ? (
+        <div
+          ref={toolbarRef}
+          className="home-top-tools fixed top-[64px] right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
+        >
         {/* Language Selector */}
         <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
 
@@ -875,7 +879,8 @@ function HomePage() {
             <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
           </button>
         </div>
-      </div>
+        </div>
+      ) : null}
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={(open) => {

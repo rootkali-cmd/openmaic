@@ -214,7 +214,8 @@ export function StudyTimer() {
   const showTime = hydrated && (state.running || started || finished);
 
   return (
-    <div ref={wrapperRef} className="fixed bottom-5 end-4 z-40 md:bottom-6 md:end-6">
+    // On a phone the dial sits above the composer instead of on its corner.
+    <div ref={wrapperRef} className="fixed bottom-[6.5rem] end-4 z-40 md:bottom-6 md:end-6">
       {open ? (
         <div
           role="dialog"

@@ -215,7 +215,7 @@ export default function TutorPage() {
 
             <div className="mt-8 w-full">{askBar}</div>
 
-            <p className="mt-3 text-[10.5px] text-white/30">{t('tutor.soonHint')}</p>
+            <p className="mt-3 text-[10.5px] leading-5 text-white/45">{t('tutor.soonHint')}</p>
           </div>
         </div>
       ) : (

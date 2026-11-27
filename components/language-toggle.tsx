@@ -34,7 +34,7 @@ export function LanguageToggle({ className = '' }: { className?: string }) {
             type="button"
             onClick={() => setLocale(option.code)}
             aria-pressed={active}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+            className={`rounded-full px-2 py-1 text-[10.5px] font-semibold transition sm:px-2.5 sm:text-[11px] ${
               active
                 ? 'bg-[#9178E6] text-white'
                 : 'text-white/50 hover:bg-white/[0.06] hover:text-white'
