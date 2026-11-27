@@ -9,7 +9,18 @@
   height: 100dvh;
   padding: max(12px, var(--safe-area-top)) max(16px, var(--safe-area-right))
     max(12px, var(--safe-area-bottom)) max(16px, var(--safe-area-left));
-  overflow: hidden;
+  /* Horizontal escape stays clipped; VERTICAL content must remain reachable.
+     `overflow:hidden` here was clipping the bottom composer on a real phone
+     (100dvh + browser chrome + on-screen keyboard + safe-area) with no way
+     to scroll to type/send. `overflow-y:auto` lets it scroll; flex-col +
+     min-height:0 + shrink-0 (composer) still keeps it pinned when it fits. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  /* `100dvh` on `<html>` + inside a vh-minus-topbar shell can over-extend;
+     clamp so nothing is pushed past the viewport. */
+  max-height: 100dvh;
   background: radial-gradient(ellipse at 10% 85%, #c5b2ff22, transparent 65%), #f6f7fc;
 }
 /* Safe-area insets are physical; mirror the logical navigation edges in RTL. */

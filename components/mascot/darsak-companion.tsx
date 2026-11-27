@@ -23,9 +23,11 @@ const MESSAGES = [
   'التركيز مهارة، وكل مرة بتتمرن عليها بتقوى.',
 ];
 
-const FIRST_DELAY_MS = 5_000;
-const VISIBLE_MS = 9_000;
-const GAP_MS = 70_000;
+// One short line every three minutes, not "back to back". The full cycle is
+// visible + gap, so GAP + VISIBLE = 3 min total between reveals.
+const FIRST_DELAY_MS = 10_000;
+const VISIBLE_MS = 8_000;
+const GAP_MS = 172_000;
 
 export function DarsakCompanion() {
   const reduced = useReducedMotion();
