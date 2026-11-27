@@ -698,3 +698,35 @@ html.darsak-shell-page *::-webkit-scrollbar-thumb:hover {
 .darsak-shell .home-brand {
   flex-wrap: wrap;
 }
+
+/* Animated focus-timer icon. Stops under prefers-reduced-motion. */
+@keyframes darsak-timer-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(-14deg);
+  }
+  30% {
+    transform: rotate(12deg);
+  }
+  45% {
+    transform: rotate(-8deg);
+  }
+  60% {
+    transform: rotate(6deg);
+  }
+  75% {
+    transform: rotate(-3deg);
+  }
+}
+.darsak-timer-wiggle {
+  animation: darsak-timer-wiggle 2.4s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .darsak-timer-wiggle {
+    animation: none;
+  }
+}

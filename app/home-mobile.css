@@ -21,6 +21,8 @@
   /* `100dvh` on `<html>` + inside a vh-minus-topbar shell can over-extend;
      clamp so nothing is pushed past the viewport. */
   max-height: 100dvh;
+  /* composer must never be pushed below / lose its size */
+  padding-top: max(8px, var(--safe-area-top));
   background: radial-gradient(ellipse at 10% 85%, #c5b2ff22, transparent 65%), #f6f7fc;
 }
 /* Safe-area insets are physical; mirror the logical navigation edges in RTL. */
@@ -87,13 +89,15 @@
 .home-page[data-mobile='true'] .home-hero {
   flex: 1;
   min-height: 0;
-  margin: 44px 0 0;
+  /* reduced top spacing so the chat box isn't pushed DOWN/off-screen */
+  margin: 12px 0 0;
   max-width: 760px;
   animation: none;
   transform: none;
 }
 .home-page[data-mobile='true'] .home-brand {
-  margin-top: auto;
+  /* don't push content down to pin the brand; keep everything reachable */
+  margin-top: 0;
 }
 .home-page[data-mobile='true'] .home-brand img {
   height: auto;
@@ -872,4 +876,8 @@ html:has(.home-page[data-mobile='true']) .home-settings-dialog {
 .darsak-shell-content .home-page[data-mobile='true'] .home-top-tools {
   position: absolute;
   top: 12px;
+}
+/* Composer is never shrunk out / pushed below; keep it sized & reachable. */
+.home-page[data-mobile='true'] .home-composer {
+  flex-shrink: 0;
 }

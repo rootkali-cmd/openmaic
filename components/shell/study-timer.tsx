@@ -10,7 +10,7 @@
  * recorded for the personal progress view.
  */
 import { Pause, Play, RotateCcw, Square, Timer } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useI18n } from '@/lib/hooks/use-i18n';
@@ -18,6 +18,7 @@ import { addFocusSession } from '@/lib/study-data';
 import { playTimerChime } from '@/lib/timer-chime';
 
 const STORAGE_KEY = 'darsak-focus-timer-v1';
+const POS_STORAGE_KEY = 'darsak-focus-timer-pos-v1';
 export const FOCUS_OPEN_EVENT = 'darsak-focus-open';
 const MIN_MINUTES = 10;
 const MAX_MINUTES = 180;
@@ -96,6 +97,25 @@ export function StudyTimer() {
   const [hydrated, setHydrated] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const completedRef = useRef(false);
+  // Draggable: position the floating dial anywhere; null = default corner.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const drag = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    origX: 0,
+    origY: 0,
+    moved: false,
+    id: null as number | null,
+  });
+
+  const clampPos = (x: number, y: number) => {
+    const w = wrapperRef.current?.offsetWidth ?? 56;
+    const h = wrapperRef.current?.offsetHeight ?? 56;
+    const maxX = Math.max(4, window.innerWidth - w - 4);
+    const maxY = Math.max(4, window.innerHeight - h - 4);
+    return { x: Math.min(Math.max(4, x), maxX), y: Math.min(Math.max(4, y), maxY) };
+  };
 
   // Hydrate after mount so the server and the first client render agree.
   useEffect(() => {
@@ -107,6 +127,15 @@ export function StudyTimer() {
     setState({ ...stored, remainingMs: remaining });
     setNow(Date.now());
     setHydrated(true);
+    try {
+      const rawPos = window.localStorage.getItem(POS_STORAGE_KEY);
+      if (rawPos) {
+        const p = JSON.parse(rawPos) as { x?: number; y?: number };
+        if (typeof p.x === 'number' && typeof p.y === 'number') setPos(clampPos(p.x, p.y));
+      }
+    } catch {
+      /* ignore corrupt position */
+    }
   }, []);
 
   // A running session counts down from its deadline, not from tick counts,
@@ -213,9 +242,80 @@ export function StudyTimer() {
   const dialProgress = Math.min(1, Math.max(0, progress));
   const showTime = hydrated && (state.running || started || finished);
 
+  const onDragStart = (event: ReactPointerEvent) => {
+    if (open) return; // drag the collapsed dial; the panel stays put
+    const w = wrapperRef.current;
+    if (!w) return;
+    const r = w.getBoundingClientRect();
+    drag.current = {
+      active: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      origX: r.left,
+      origY: r.top,
+      moved: false,
+      id: event.pointerId,
+    };
+    try {
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    } catch {
+      /* noop */
+    }
+  };
+  const onDragMove = (event: ReactPointerEvent) => {
+    if (!drag.current.active) return;
+    const dx = event.clientX - drag.current.startX;
+    const dy = event.clientY - drag.current.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.current.moved = true;
+    if (drag.current.moved) {
+      event.preventDefault();
+      setPos(clampPos(drag.current.origX + dx, drag.current.origY + dy));
+    }
+  };
+  const onDragEnd = (event: ReactPointerEvent) => {
+    if (!drag.current.active) return;
+    const wasMoved = drag.current.moved;
+    drag.current.active = false;
+    try {
+      (event.currentTarget as HTMLElement).releasePointerCapture(
+        drag.current.id ?? event.pointerId,
+      );
+    } catch {
+      /* noop */
+    }
+    if (!wasMoved) {
+      setOpen((v) => !v);
+      return;
+    }
+    setPos((cur) => {
+      const next = cur ?? clampPos(drag.current.origX, drag.current.origY);
+      try {
+        window.localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
+  };
+
   return (
-    // On a phone the dial sits above the composer instead of on its corner.
-    <div ref={wrapperRef} className="fixed bottom-[8.5rem] end-4 z-40 md:bottom-6 md:end-6">
+    // Clickable + draggable to anywhere; remembers position. Default corner otherwise.
+    <div
+      ref={wrapperRef}
+      className="fixed bottom-[8.5rem] end-4 z-40 md:bottom-6 md:end-6"
+      style={
+        pos
+          ? {
+              left: pos.x,
+              top: pos.y,
+              right: 'auto',
+              bottom: 'auto',
+              insetInlineStart: 'auto',
+              insetInlineEnd: 'auto',
+            }
+          : undefined
+      }
+    >
       {open ? (
         <div
           role="dialog"
@@ -349,11 +449,16 @@ export function StudyTimer() {
 
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
         aria-expanded={open}
         aria-haspopup="dialog"
-        title={t('shell.focus.title')}
-        className={`group relative grid size-14 place-items-center rounded-full border text-white shadow-[0_18px_44px_-16px_rgba(0,0,0,0.85)] backdrop-blur transition hover:scale-[1.04] active:scale-95 ${
+        aria-label={t('shell.focus.title')}
+        title={t('shell.focus.title') + ' — اسحبها لأي مكان'}
+        style={{ touchAction: 'none' }}
+        className={`group relative grid size-14 cursor-grab place-items-center rounded-full border text-white shadow-[0_18px_44px_-16px_rgba(0,0,0,0.85)] backdrop-blur transition hover:scale-[1.04] active:cursor-grabbing active:scale-95 ${
           state.running ? 'border-[#00C386]/40 bg-[#0E1A17]/90' : 'border-white/10 bg-[#12141f]/90'
         }`}
       >
@@ -387,7 +492,7 @@ export function StudyTimer() {
             </span>
           ) : (
             <Timer
-              className="size-5 text-[#B9A8FF] transition group-hover:text-white"
+              className="size-5 text-[#B9A8FF] transition group-hover:text-white darsak-timer-wiggle"
               aria-hidden
             />
           )}
