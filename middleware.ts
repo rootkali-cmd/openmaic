@@ -71,9 +71,14 @@ export async function middleware(request: NextRequest) {
 
   // SECURITY gate (see REQUIRE_REGISTERED_USER above).
   if (REQUIRE_REGISTERED_USER && !isAuthPublic(pathname)) {
-    const profile = await readDarsakProfile(request.headers);
+    // vercel-react-best-practices: async-parallel + async-cheap-condition-before-await
+    // check cheap sync conditions first; run independent async work in parallel.
     const accessCookie = accessCode ? request.cookies.get('openmaic_access')?.value : undefined;
-    const hasAccessCode = !!accessCode && !!accessCookie && (await verifyAccessTokenEdge(accessCookie, accessCode));
+    const [profile, accessOk] = await Promise.all([
+      readDarsakProfile(request.headers),
+      accessCode && accessCookie ? verifyAccessTokenEdge(accessCookie, accessCode) : Promise.resolve(false),
+    ]);
+    const hasAccessCode = !!accessCode && !!accessCookie && accessOk;
     if (!profile && !hasAccessCode) {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json(
