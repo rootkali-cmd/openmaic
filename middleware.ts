@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { isAgentRuntimeConfigured, isProWorkbenchEnabled } from '@/lib/config/feature-flags';
 import { verifyAccessTokenEdge } from '@/lib/server/access-token-edge';
+import { readDarsakProfile } from '@/lib/server/identity/host/darsak-jwt';
+import { DARSAK_LOGIN_URL } from '@/lib/site-links';
 import {
   anonymousOwnerForNavigation,
   type NavigationIdentity,
@@ -22,6 +24,27 @@ function next(request: NextRequest, identity: NavigationIdentity | undefined): N
   return response;
 }
 
+/**
+ * SECURITY: require a registered (signed-in) user; disable anonymous guests.
+ * Opt-in via REQUIRE_REGISTERED_USER=true. When on, anonymous owner minting
+ * is disabled, unauthenticated page requests redirect to Darsak sign-in,
+ * unauthenticated API requests get 401, and a tiny auth-public allowlist
+ * stays reachable. A request counts as registered when it has a valid Darsak
+ * signed session (readDarsakProfile) OR a valid access-code cookie
+ * (ACCESS_CODE + openmaic_access, verifyAccessTokenEdge). Additive and
+ * reversible; existing ACCESS_CODE logic below still applies.
+ */
+const REQUIRE_REGISTERED_USER = /^(1|true)$/i.test(process.env.REQUIRE_REGISTERED_USER ?? '');
+
+function isAuthPublic(pathname: string): boolean {
+  if (pathname.startsWith('/_next') || pathname === '/favicon.ico' || /\.[a-zA-Z0-9]+$/.test(pathname)) return true;
+  return (
+    pathname === '/login' || pathname === '/register' || pathname === '/sign-in' || pathname === '/sign-up' ||
+    pathname === '/enter' || pathname.startsWith('/api/identity/') || pathname.startsWith('/api/access-code/') ||
+    pathname === '/api/health' || pathname.startsWith('/api/auth/')
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -40,14 +63,31 @@ export async function middleware(request: NextRequest) {
   }
 
   // One anonymous owner per browser, established on the page response before
-  // any API request can mint its own.
-  const identity = anonymousOwnerForNavigation({
-    method: request.method,
-    headers: request.headers,
-    pathname,
-  });
-
+  // any API request can mint its own. NOT minted when a registered user is required.
   const accessCode = process.env.ACCESS_CODE;
+  const identity = REQUIRE_REGISTERED_USER
+    ? undefined
+    : anonymousOwnerForNavigation({ method: request.method, headers: request.headers, pathname });
+
+  // SECURITY gate (see REQUIRE_REGISTERED_USER above).
+  if (REQUIRE_REGISTERED_USER && !isAuthPublic(pathname)) {
+    const profile = await readDarsakProfile(request.headers);
+    const accessCookie = accessCode ? request.cookies.get('openmaic_access')?.value : undefined;
+    const hasAccessCode = !!accessCode && !!accessCookie && (await verifyAccessTokenEdge(accessCookie, accessCode));
+    if (!profile && !hasAccessCode) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          { success: false, errorCode: 'AUTHENTICATION_REQUIRED', error: 'Registration required' },
+          { status: 401 },
+        );
+      }
+      // no /login in this app; send to Darsak web sign-in, remember destination
+      const loginUrl = new URL(DARSAK_LOGIN_URL);
+      loginUrl.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   if (!accessCode) {
     return next(request, identity);
   }

@@ -730,3 +730,31 @@ html.darsak-shell-page *::-webkit-scrollbar-thumb:hover {
     animation: none;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Responsive base: automatically fit ANY screen; nothing escapes the frame.
+   - border-box everywhere; no element wider than its container;
+   - long unbroken text wraps; flex/grid children can shrink (min-width:0);
+   - media scales; fluid type via clamp at component level;
+   - disable mobile text inflation; safe horizontal clipping on root.
+   ───────────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { max-width: 100%; }
+html { overflow-x: hidden; }
+body { overflow-x: hidden; }
+
+img, picture, video, canvas, svg, iframe { max-width: 100%; }
+img, video { height: auto; }
+
+.flex > *, .grid > * { min-width: 0; }
+
+:where(p, li, h1, h2, h3, h4, h5, h6, a, td, th, blockquote, figcaption, pre, code, input, textarea, button, [role='button']) {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
