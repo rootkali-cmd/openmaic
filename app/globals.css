@@ -681,13 +681,11 @@ html.darsak-shell-page *::-webkit-scrollbar-thumb:hover {
   }
 }
 
-/* Mobile hardening: nothing escapes the frame horizontally. `clip` (not
-   `hidden`) so it never creates a scroll container; `position:fixed` stays
-   viewport-based. Media scales; flex/grid children can shrink. */
-.darsak-shell {
-  overflow-x: clip;
-}
-
+/* Mobile hardening: `.darsak-shell` already has `overflow-hidden` (see
+   app-shell.tsx), so horizontal escape is already clipped; `scrollWidth`
+   can't prove it. These make flex/grid children shrinkable and media scale,
+   which actually prevents overflow. NOTE: `min-width:0` on a flex child is
+   the real fix, not adding another `overflow-x`. */
 .darsak-shell-content {
   min-width: 0;
 }
