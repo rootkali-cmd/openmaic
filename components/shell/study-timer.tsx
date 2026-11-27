@@ -215,7 +215,7 @@ export function StudyTimer() {
 
   return (
     // On a phone the dial sits above the composer instead of on its corner.
-    <div ref={wrapperRef} className="fixed bottom-[6.5rem] end-4 z-40 md:bottom-6 md:end-6">
+    <div ref={wrapperRef} className="fixed bottom-[8.5rem] end-4 z-40 md:bottom-6 md:end-6">
       {open ? (
         <div
           role="dialog"
