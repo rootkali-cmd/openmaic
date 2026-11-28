@@ -37,11 +37,16 @@ function next(request: NextRequest, identity: NavigationIdentity | undefined): N
 const REQUIRE_REGISTERED_USER = /^(1|true)$/i.test(process.env.REQUIRE_REGISTERED_USER ?? '');
 
 function isAuthPublic(pathname: string): boolean {
-  if (pathname.startsWith('/_next') || pathname === '/favicon.ico' || /\.[a-zA-Z0-9]+$/.test(pathname)) return true;
+  if (pathname.startsWith('/_next') || pathname.startsWith('/logos/')) return true;
+  // Static files only: never let a dot in an API path opt it out of the gate.
+  if (!pathname.startsWith('/api/') && /\.[a-zA-Z0-9]+$/.test(pathname)) return true;
   return (
     pathname === '/login' || pathname === '/register' || pathname === '/sign-in' || pathname === '/sign-up' ||
-    pathname === '/enter' || pathname.startsWith('/api/identity/') || pathname.startsWith('/api/access-code/') ||
-    pathname === '/api/health' || pathname.startsWith('/api/auth/')
+    pathname === '/enter' ||
+    // The two identity routes the shell needs while signed out: who am I, and
+    // the sign-in handoff itself (it verifies its own signed assertion).
+    pathname === '/api/identity/me' || pathname === '/api/identity/darsak' ||
+    pathname.startsWith('/api/access-code/') || pathname === '/api/health'
   );
 }
 
@@ -88,7 +93,12 @@ export async function middleware(request: NextRequest) {
       }
       // no /login in this app; send to Darsak web sign-in, remember destination
       const loginUrl = new URL(DARSAK_LOGIN_URL);
-      loginUrl.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
+      // Remember where the student was headed, but never carry a credential in
+      // the return URL: a link could plant `?assertion=…` and sign the victim
+      // into the attacker's account (login CSRF). Strip it.
+      const returnTo = new URL(request.nextUrl.pathname + request.nextUrl.search, 'http://localhost');
+      returnTo.searchParams.delete('assertion');
+      loginUrl.searchParams.set('next', returnTo.pathname + returnTo.search);
       return NextResponse.redirect(loginUrl);
     }
   }

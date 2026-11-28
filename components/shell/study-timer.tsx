@@ -366,7 +366,7 @@ export function StudyTimer() {
                     onClick={() => chooseMinutes(preset)}
                     className={`rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums transition disabled:opacity-40 ${
                       selected
-                        ? 'bg-[#9178E6] text-white'
+                        ? 'bg-[#7a5ad6] text-white'
                         : 'bg-white/[0.05] text-white/55 hover:bg-white/[0.09] hover:text-white'
                     }`}
                   >
@@ -418,7 +418,7 @@ export function StudyTimer() {
               <button
                 type="button"
                 onClick={start}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#9178E6] text-[12px] font-bold text-white transition hover:bg-[#7C63D8]"
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#7a5ad6] text-[12px] font-bold text-white transition hover:bg-[#7C63D8]"
               >
                 <Play className="size-3.5" aria-hidden />
                 {started ? t('shell.focus.resume') : t('shell.focus.start')}

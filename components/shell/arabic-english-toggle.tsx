@@ -18,7 +18,7 @@ export function ArabicEnglishToggle({ className = '' }: { className?: string }) 
 
   const segment = (active: boolean, key: string) =>
     `rounded-full px-2.5 py-1 text-[11px] font-bold leading-none transition ${
-      active ? 'bg-[#9178E6] text-white shadow-sm' : 'text-white/45 hover:text-white'
+      active ? 'bg-[#7a5ad6] text-white shadow-sm' : 'text-white/45 hover:text-white'
     } ${key}`;
 
   return (

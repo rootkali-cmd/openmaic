@@ -77,8 +77,8 @@ export default function StudyPlansPage() {
 
   useEffect(() => {
     // Hydrate plans from localStorage after mount; SSR has no storage.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is an external store
     reload();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setHydrated(true);
     if (getPlans().length === 0) setFormOpen(true);
   }, []);
@@ -205,7 +205,7 @@ export default function StudyPlansPage() {
               <button
                 type="button"
                 onClick={create}
-                className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#9178E6] px-5 text-[12.5px] font-bold text-white transition hover:bg-[#7C63D8]"
+                className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#7a5ad6] px-5 text-[12.5px] font-bold text-white transition hover:bg-[#7C63D8]"
               >
                 <CalendarDays className="size-4" aria-hidden />
                 اعمل الخطة

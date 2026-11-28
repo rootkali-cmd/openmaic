@@ -58,7 +58,7 @@ export function GuestAuthActions() {
           </a>
           <a
             href={`${DARSAK_WEB_URL}/register`}
-            className="rounded-lg bg-[#9178E6] px-2.5 py-1.5 text-[11px] font-bold text-white shadow-[0_6px_16px_-8px_#9178E6] transition hover:bg-[#7C63D8]"
+            className="rounded-lg bg-[#7a5ad6] px-2.5 py-1.5 text-[11px] font-bold text-white shadow-[0_6px_16px_-8px_#7a5ad6] transition hover:bg-[#7C63D8]"
           >
             {t('shell.auth.signUp')}
           </a>

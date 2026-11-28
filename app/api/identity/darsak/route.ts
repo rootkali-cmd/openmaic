@@ -1,4 +1,5 @@
 import { withRequestOwner } from '@/lib/server/identity/with-owner';
+import { DARSAK_LOGIN_URL } from '@/lib/site-links';
 
 export const runtime = 'nodejs';
 
@@ -27,7 +28,16 @@ export async function GET(request: Request): Promise<Response> {
     // A relative Location: behind Heroku's router `request.url` carries the
     // internal host/port, not the public one.
     if (principal.kind === 'anonymous') {
-      responseHeaders.set('location', '/?darsak-auth=failed');
+      // With registration required, `/?darsak-auth=failed` would only bounce
+      // through the gate back to sign-in; send the student there directly.
+      if (/^(1|true)$/i.test(process.env.REQUIRE_REGISTERED_USER ?? '')) {
+        const loginUrl = new URL(DARSAK_LOGIN_URL);
+        loginUrl.searchParams.set('next', '/');
+        loginUrl.searchParams.set('reason', 'handoff');
+        responseHeaders.set('location', loginUrl.toString());
+      } else {
+        responseHeaders.set('location', '/?darsak-auth=failed');
+      }
     } else {
       responseHeaders.set('location', '/');
     }
