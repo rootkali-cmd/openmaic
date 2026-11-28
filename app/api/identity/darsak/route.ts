@@ -1,4 +1,4 @@
-import { withRequestOwner } from '@/lib/server/identity/with-owner';
+import { authenticateRequestOwner } from '@/lib/server/identity/with-owner';
 import { DARSAK_LOGIN_URL } from '@/lib/site-links';
 
 export const runtime = 'nodejs';
@@ -24,23 +24,37 @@ export const runtime = 'nodejs';
  * an anonymous owner (and Darsak's next sign-in attempt can try again).
  */
 export async function GET(request: Request): Promise<Response> {
-  return withRequestOwner(request, async (principal, responseHeaders) => {
-    // A relative Location: behind Heroku's router `request.url` carries the
-    // internal host/port, not the public one.
-    if (principal.kind === 'anonymous') {
-      // With registration required, `/?darsak-auth=failed` would only bounce
-      // through the gate back to sign-in; send the student there directly.
-      if (/^(1|true)$/i.test(process.env.REQUIRE_REGISTERED_USER ?? '')) {
-        const loginUrl = new URL(DARSAK_LOGIN_URL);
-        loginUrl.searchParams.set('next', '/');
-        loginUrl.searchParams.set('reason', 'handoff');
-        responseHeaders.set('location', loginUrl.toString());
-      } else {
-        responseHeaders.set('location', '/?darsak-auth=failed');
-      }
-    } else {
-      responseHeaders.set('location', '/');
-    }
-    return new Response(null, { status: 302, headers: responseHeaders });
-  });
+  const requireRegistered = /^(1|true)$/i.test(process.env.REQUIRE_REGISTERED_USER ?? '');
+
+  /** Off to Darsak sign-in; `Set-Cookie` values already emitted are kept. */
+  const toLogin = (reason: string, emitted?: Headers): Response => {
+    const loginUrl = new URL(DARSAK_LOGIN_URL);
+    loginUrl.searchParams.set('next', '/');
+    loginUrl.searchParams.set('reason', reason);
+    const headers = new Headers();
+    emitted?.forEach((value, name) => headers.append(name, value));
+    headers.set('location', loginUrl.toString());
+    return new Response(null, { status: 302, headers });
+  };
+
+  const resolution = await authenticateRequestOwner(request);
+
+  // A bad, expired or planted assertion is not a credential. With registration
+  // required, send the student to sign in again instead of a bare 401.
+  if (!resolution.ok) {
+    return requireRegistered ? toLogin('handoff') : resolution.response;
+  }
+
+  const { principal, responseHeaders } = resolution;
+  // A relative Location for the success case: behind Heroku's router
+  // `request.url` carries the internal host/port, not the public one.
+  if (principal.kind === 'anonymous') {
+    // No usable handoff assertion. With registration required an anonymous
+    // owner is not enough; `/` would only bounce through the gate anyway.
+    if (requireRegistered) return toLogin('handoff', responseHeaders);
+    responseHeaders.set('location', '/?darsak-auth=failed');
+  } else {
+    responseHeaders.set('location', '/');
+  }
+  return new Response(null, { status: 302, headers: responseHeaders });
 }
